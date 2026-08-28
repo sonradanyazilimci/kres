@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Veli Paneli — Küçük Adımlar Kreş</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%B8%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <div class="panel">
+    <aside class="yan-menu">
+      <div class="yan-menu__logo"><span class="logo__mark">🧸</span><span>Veli</span></div>
+      <a href="#" data-gorunum="ozet" class="aktif"><span class="i">🏠</span> Özet</a>
+      <a href="#" data-gorunum="raporlar"><span class="i">📝</span> Günlük Raporlar</a>
+      <a href="#" data-gorunum="yoklama"><span class="i">✅</span> Yoklama</a>
+      <a href="#" data-gorunum="galeri"><span class="i">📷</span> Galeri</a>
+      <a href="#" data-gorunum="duyurular"><span class="i">📢</span> Duyurular</a>
+      <a href="#" data-gorunum="mesajlar"><span class="i">💬</span> Mesajlar</a>
+      <a href="#" data-gorunum="odemeler"><span class="i">💳</span> Ödemeler</a>
+      <div class="yan-menu__alt">
+        <a href="#" id="cikisBtn"><span class="i">🚪</span> Çıkış Yap</a>
+      </div>
+    </aside>
+
+    <div>
+      <div class="mobil-ust">
+        <span class="logo"><span class="logo__mark">🧸</span> Veli</span>
+        <button class="btn btn--ghost btn--sm" id="cikisBtnMobil">Çıkış</button>
+      </div>
+
+      <div class="panel-icerik">
+        <div class="panel-ust">
+          <h1 id="sayfaBaslik">Özet</h1>
+          <div class="kullanici-rozet">
+            <span class="avatar" id="userAvatar">?</span>
+            <span id="userAd">...</span>
+          </div>
+        </div>
+
+        <!-- Çocuk seçici (birden fazla çocuk varsa) -->
+        <div class="form-grup" id="cocukSeciciSar" style="max-width:320px">
+          <label for="cocukSecici">Çocuk</label>
+          <select id="cocukSecici"></select>
+        </div>
+
+        <!-- ÖZET -->
+        <section class="gorunum aktif" id="gorunum-ozet">
+          <div class="kutu" id="cocukKart"></div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Bugünün Raporu</h2></div>
+            <div id="bugun-rapor"></div>
+          </div>
+        </section>
+
+        <!-- GÜNLÜK RAPORLAR -->
+        <section class="gorunum" id="gorunum-raporlar">
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>Günlük Raporlar</h2>
+              <input type="date" id="raporTarih" />
+            </div>
+            <div id="rapor-liste"></div>
+          </div>
+        </section>
+
+        <!-- YOKLAMA -->
+        <section class="gorunum" id="gorunum-yoklama">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Yoklama Geçmişi</h2></div>
+            <div class="tablo-sar"><table class="veri-tablo" id="yoklama-tablo"></table></div>
+          </div>
+        </section>
+
+        <!-- GALERİ -->
+        <section class="gorunum" id="gorunum-galeri">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Sınıf Galerisi</h2></div>
+            <div class="foto-izgara" id="foto-izgara"></div>
+          </div>
+        </section>
+
+        <!-- DUYURULAR -->
+        <section class="gorunum" id="gorunum-duyurular">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Duyurular</h2></div>
+            <div id="duyuru-liste"></div>
+          </div>
+        </section>
+
+        <!-- MESAJLAR -->
+        <section class="gorunum" id="gorunum-mesajlar">
+          <div class="mesaj-duzen">
+            <div class="mesaj-kisiler" id="mesaj-kisiler"></div>
+            <div class="mesaj-panel">
+              <div class="mesaj-panel__ust" id="mesaj-baslik">Bir kişi seçin</div>
+              <div class="mesaj-akis" id="mesaj-akis"></div>
+              <form class="mesaj-yaz" id="mesaj-yaz">
+                <input type="text" id="mesaj-input" placeholder="Mesaj yazın..." autocomplete="off" disabled />
+                <button type="submit" class="btn btn--primary" disabled>Gönder</button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- ÖDEMELER -->
+        <section class="gorunum" id="gorunum-odemeler">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Ödeme Durumu</h2></div>
+            <div class="tablo-sar"><table class="veri-tablo" id="odeme-tablo"></table></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/veli.js"></script>
+</body>
+</html>

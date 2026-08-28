@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yönetici Paneli — Küçük Adımlar Kreş</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%B8%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <div class="panel">
+    <!-- ===================== YAN MENÜ ===================== -->
+    <aside class="yan-menu">
+      <div class="yan-menu__logo"><span class="logo__mark">🧸</span><span>Yönetici</span></div>
+      <a href="#" data-gorunum="genel-bakis" class="aktif"><span class="i">📊</span> Genel Bakış</a>
+      <a href="#" data-gorunum="kullanicilar"><span class="i">👥</span> Kullanıcılar</a>
+      <a href="#" data-gorunum="siniflar"><span class="i">🏫</span> Sınıflar</a>
+      <a href="#" data-gorunum="ogrenciler"><span class="i">🧒</span> Öğrenciler</a>
+      <a href="#" data-gorunum="duyurular"><span class="i">📢</span> Duyurular</a>
+      <a href="#" data-gorunum="galeri"><span class="i">📷</span> Galeri</a>
+      <a href="#" data-gorunum="odemeler"><span class="i">💳</span> Ödemeler</a>
+      <div class="yan-menu__alt">
+        <a href="#" id="cikisBtn"><span class="i">🚪</span> Çıkış Yap</a>
+      </div>
+    </aside>
+
+    <!-- ===================== İÇERİK ===================== -->
+    <div>
+      <div class="mobil-ust">
+        <span class="logo"><span class="logo__mark">🧸</span> Yönetici</span>
+        <button class="btn btn--ghost btn--sm" id="cikisBtnMobil">Çıkış</button>
+      </div>
+
+      <div class="panel-icerik">
+        <div class="panel-ust">
+          <h1 id="sayfaBaslik">Genel Bakış</h1>
+          <div class="kullanici-rozet">
+            <span class="avatar" id="userAvatar">?</span>
+            <span id="userAd">...</span>
+          </div>
+        </div>
+
+        <!-- GENEL BAKIŞ -->
+        <section class="gorunum aktif" id="gorunum-genel-bakis">
+          <div class="stat-izgara" id="statKartlar"></div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Sınıf Doluluk Durumu</h2></div>
+            <div class="tablo-sar"><table class="veri-tablo" id="doluluk-tablo"></table></div>
+          </div>
+        </section>
+
+        <!-- KULLANICILAR -->
+        <section class="gorunum" id="gorunum-kullanicilar">
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>Kullanıcılar</h2>
+              <button class="btn btn--primary btn--sm" id="yeniKullaniciBtn">+ Yeni Kullanıcı</button>
+            </div>
+            <div class="sekmeler" id="kullaniciFiltre">
+              <button class="aktif" data-rol="hepsi">Hepsi</button>
+              <button data-rol="ogretmen">Öğretmenler</button>
+              <button data-rol="veli">Veliler</button>
+              <button data-rol="admin">Yöneticiler</button>
+            </div>
+            <div class="tablo-sar"><table class="veri-tablo" id="kullanici-tablo"></table></div>
+          </div>
+        </section>
+
+        <!-- SINIFLAR -->
+        <section class="gorunum" id="gorunum-siniflar">
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>Sınıflar</h2>
+              <button class="btn btn--primary btn--sm" id="yeniSinifBtn">+ Yeni Sınıf</button>
+            </div>
+            <div class="tablo-sar"><table class="veri-tablo" id="sinif-tablo"></table></div>
+          </div>
+        </section>
+
+        <!-- ÖĞRENCİLER -->
+        <section class="gorunum" id="gorunum-ogrenciler">
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>Öğrenciler</h2>
+              <button class="btn btn--primary btn--sm" id="yeniOgrenciBtn">+ Yeni Öğrenci</button>
+            </div>
+            <div class="form-grup" style="max-width:280px">
+              <select id="ogrenciSinifFiltre"><option value="hepsi">Tüm sınıflar</option></select>
+            </div>
+            <div class="tablo-sar"><table class="veri-tablo" id="ogrenci-tablo"></table></div>
+          </div>
+        </section>
+
+        <!-- DUYURULAR -->
+        <section class="gorunum" id="gorunum-duyurular">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Yeni Duyuru</h2></div>
+            <form id="duyuruForm">
+              <div class="form-grup">
+                <label for="duyuruBaslik">Başlık</label>
+                <input type="text" id="duyuruBaslik" name="baslik" required />
+              </div>
+              <div class="form-grup">
+                <label for="duyuruIcerik">İçerik</label>
+                <textarea id="duyuruIcerik" name="icerik" required></textarea>
+              </div>
+              <div class="form-grup">
+                <label for="duyuruHedef">Hedef</label>
+                <select id="duyuruHedef" name="hedef"><option value="okul">Tüm Okul</option></select>
+              </div>
+              <button type="submit" class="btn btn--primary">Yayınla</button>
+            </form>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Yayınlanan Duyurular</h2></div>
+            <div id="duyuru-liste"></div>
+          </div>
+        </section>
+
+        <!-- GALERİ (Google Drive) -->
+        <section class="gorunum" id="gorunum-galeri">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Fotoğraf Yükle</h2></div>
+            <form id="fotoForm">
+              <div class="form-satir">
+                <div class="form-grup">
+                  <label for="fotoDosya">Fotoğraf</label>
+                  <input type="file" id="fotoDosya" accept="image/*" required />
+                </div>
+                <div class="form-grup">
+                  <label for="fotoHedef">Hedef</label>
+                  <select id="fotoHedef" name="hedef"><option value="okul">Tüm Okul</option></select>
+                </div>
+              </div>
+              <div class="form-grup">
+                <label for="fotoAciklama">Açıklama</label>
+                <input type="text" id="fotoAciklama" placeholder="Örn: 23 Nisan kutlaması" />
+              </div>
+              <button type="submit" class="btn btn--primary" id="fotoYukleBtn">Yükle</button>
+              <p class="form-yardim">Fotoğraflar Google Drive'a yüklenir. "Tüm Okul" seçilirse tüm veliler, bir sınıf seçilirse yalnızca o sınıfın velileri görür.</p>
+            </form>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Tüm Fotoğraflar</h2></div>
+            <div class="foto-izgara" id="foto-izgara"></div>
+          </div>
+        </section>
+
+        <!-- ÖDEMELER -->
+        <section class="gorunum" id="gorunum-odemeler">
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>Ödeme Kaydı Ekle</h2>
+            </div>
+            <form id="odemeForm">
+              <div class="form-satir">
+                <div class="form-grup">
+                  <label for="odemeOgrenci">Öğrenci</label>
+                  <select id="odemeOgrenci" name="ogrenciId" required></select>
+                </div>
+                <div class="form-grup">
+                  <label for="odemeAy">Ay</label>
+                  <input type="month" id="odemeAy" name="ay" required />
+                </div>
+              </div>
+              <div class="form-satir">
+                <div class="form-grup">
+                  <label for="odemeTutar">Tutar (₺)</label>
+                  <input type="number" id="odemeTutar" name="tutar" min="0" step="0.01" required />
+                </div>
+                <div class="form-grup">
+                  <label for="odemeDurum">Durum</label>
+                  <select id="odemeDurum" name="durum">
+                    <option value="bekliyor">Bekliyor</option>
+                    <option value="odendi">Ödendi</option>
+                  </select>
+                </div>
+              </div>
+              <button type="submit" class="btn btn--primary">Kaydet</button>
+            </form>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Ödeme Kayıtları</h2></div>
+            <div class="tablo-sar"><table class="veri-tablo" id="odeme-tablo"></table></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/admin.js"></script>
+</body>
+</html>

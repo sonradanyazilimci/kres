@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Öğretmen Paneli — Küçük Adımlar Kreş</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%B8%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <div class="panel">
+    <aside class="yan-menu">
+      <div class="yan-menu__logo"><span class="logo__mark">🧸</span><span>Öğretmen</span></div>
+      <a href="#" data-gorunum="sinifim" class="aktif"><span class="i">🧒</span> Sınıfım</a>
+      <a href="#" data-gorunum="yoklama"><span class="i">✅</span> Yoklama</a>
+      <a href="#" data-gorunum="rapor"><span class="i">📝</span> Günlük Rapor</a>
+      <a href="#" data-gorunum="galeri"><span class="i">📷</span> Galeri</a>
+      <a href="#" data-gorunum="duyurular"><span class="i">📢</span> Duyurular</a>
+      <a href="#" data-gorunum="mesajlar"><span class="i">💬</span> Mesajlar</a>
+      <div class="yan-menu__alt">
+        <a href="#" id="cikisBtn"><span class="i">🚪</span> Çıkış Yap</a>
+      </div>
+    </aside>
+
+    <div>
+      <div class="mobil-ust">
+        <span class="logo"><span class="logo__mark">🧸</span> Öğretmen</span>
+        <button class="btn btn--ghost btn--sm" id="cikisBtnMobil">Çıkış</button>
+      </div>
+
+      <div class="panel-icerik">
+        <div class="panel-ust">
+          <h1 id="sayfaBaslik">Sınıfım</h1>
+          <div class="kullanici-rozet">
+            <span class="avatar" id="userAvatar">?</span>
+            <span id="userAd">...</span>
+          </div>
+        </div>
+
+        <div class="kutu" id="sinifBilgiKutu">
+          <div class="satir-arasi">
+            <strong id="sinifAdi">Sınıf yükleniyor...</strong>
+            <span class="rozet rozet--bilgi" id="sinifYas"></span>
+            <span class="soluk" id="sinifMevcut"></span>
+          </div>
+        </div>
+
+        <!-- SINIFIM -->
+        <section class="gorunum aktif" id="gorunum-sinifim">
+          <div class="ogrenci-izgara" id="ogrenci-izgara"></div>
+        </section>
+
+        <!-- YOKLAMA -->
+        <section class="gorunum" id="gorunum-yoklama">
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>Yoklama</h2>
+              <input type="date" id="yoklamaTarih" />
+            </div>
+            <div id="yoklama-liste"></div>
+            <button class="btn btn--primary mt-2" id="yoklamaKaydet">Yoklamayı Kaydet</button>
+          </div>
+        </section>
+
+        <!-- GÜNLÜK RAPOR -->
+        <section class="gorunum" id="gorunum-rapor">
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>Günlük Rapor</h2>
+              <input type="date" id="raporTarih" />
+            </div>
+            <div class="form-grup" style="max-width:320px">
+              <label for="raporOgrenci">Öğrenci</label>
+              <select id="raporOgrenci"></select>
+            </div>
+            <form id="raporForm">
+              <div class="form-satir">
+                <div class="form-grup">
+                  <label for="rYemek">Yemek Durumu</label>
+                  <select id="rYemek" name="yemek">
+                    <option value="Hepsini yedi">Hepsini yedi</option>
+                    <option value="Yarısını yedi">Yarısını yedi</option>
+                    <option value="Az yedi">Az yedi</option>
+                    <option value="Yemedi">Yemedi</option>
+                  </select>
+                </div>
+                <div class="form-grup">
+                  <label for="rUyku">Uyku</label>
+                  <select id="rUyku" name="uyku">
+                    <option value="Rahat uyudu">Rahat uyudu</option>
+                    <option value="Kısa uyudu">Kısa uyudu</option>
+                    <option value="Uyumadı">Uyumadı</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-satir">
+                <div class="form-grup">
+                  <label for="rTuvalet">Tuvalet</label>
+                  <select id="rTuvalet" name="tuvalet">
+                    <option value="Sorunsuz">Sorunsuz</option>
+                    <option value="Yardım gerekti">Yardım gerekti</option>
+                    <option value="Kaza oldu">Kaza oldu</option>
+                  </select>
+                </div>
+                <div class="form-grup">
+                  <label for="rRuhHali">Ruh Hali</label>
+                  <select id="rRuhHali" name="ruhHali">
+                    <option value="Neşeli">Neşeli</option>
+                    <option value="Sakin">Sakin</option>
+                    <option value="Huzursuz">Huzursuz</option>
+                    <option value="Ağladı">Ağladı</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-grup">
+                <label for="rEtkinlik">Günün Etkinliği</label>
+                <input type="text" id="rEtkinlik" name="etkinlik" placeholder="Örn: Parmak boyası, hikaye saati" />
+              </div>
+              <div class="form-grup">
+                <label for="rNot">Serbest Not</label>
+                <textarea id="rNot" name="not" placeholder="Veliye iletmek istedikleriniz..."></textarea>
+              </div>
+              <button type="submit" class="btn btn--primary">Raporu Kaydet</button>
+            </form>
+          </div>
+        </section>
+
+        <!-- GALERİ -->
+        <section class="gorunum" id="gorunum-galeri">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Fotoğraf Yükle</h2></div>
+            <form id="fotoForm">
+              <div class="form-grup">
+                <label for="fotoDosya">Fotoğraf</label>
+                <input type="file" id="fotoDosya" accept="image/*" required />
+              </div>
+              <div class="form-grup">
+                <label for="fotoAciklama">Açıklama</label>
+                <input type="text" id="fotoAciklama" placeholder="Örn: Bahçe oyunları" />
+              </div>
+              <button type="submit" class="btn btn--primary" id="fotoYukleBtn">Yükle</button>
+            </form>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Sınıf Galerisi</h2></div>
+            <div class="foto-izgara" id="foto-izgara"></div>
+          </div>
+        </section>
+
+        <!-- DUYURULAR -->
+        <section class="gorunum" id="gorunum-duyurular">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Sınıfıma Duyuru</h2></div>
+            <form id="duyuruForm">
+              <div class="form-grup">
+                <label for="duyuruBaslik">Başlık</label>
+                <input type="text" id="duyuruBaslik" name="baslik" required />
+              </div>
+              <div class="form-grup">
+                <label for="duyuruIcerik">İçerik</label>
+                <textarea id="duyuruIcerik" name="icerik" required></textarea>
+              </div>
+              <button type="submit" class="btn btn--primary">Yayınla</button>
+            </form>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Duyurular</h2></div>
+            <div id="duyuru-liste"></div>
+          </div>
+        </section>
+
+        <!-- MESAJLAR -->
+        <section class="gorunum" id="gorunum-mesajlar">
+          <div class="mesaj-duzen">
+            <div class="mesaj-kisiler" id="mesaj-kisiler"></div>
+            <div class="mesaj-panel">
+              <div class="mesaj-panel__ust" id="mesaj-baslik">Bir kişi seçin</div>
+              <div class="mesaj-akis" id="mesaj-akis"></div>
+              <form class="mesaj-yaz" id="mesaj-yaz">
+                <input type="text" id="mesaj-input" placeholder="Mesaj yazın..." autocomplete="off" disabled />
+                <button type="submit" class="btn btn--primary" disabled>Gönder</button>
+              </form>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/ogretmen.js"></script>
+</body>
+</html>

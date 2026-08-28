@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kurulum Sihirbazı — Küçük Adımlar Kreş</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%A0%3C/text%3E%3C/svg%3E" />
+  <style>
+    body { padding: 30px 0 80px; }
+    .kur-baslik { text-align: center; margin-bottom: 8px; }
+    .kur-alt { text-align: center; color: var(--metin-soluk); margin-bottom: 28px; }
+    .adim { position: relative; }
+    .adim__no {
+      display: inline-grid; place-items: center;
+      width: 30px; height: 30px; border-radius: 50%;
+      background: var(--renk-birincil); color: #fff; font-weight: 900;
+      margin-right: 10px; vertical-align: middle;
+    }
+    .kontrol-satir { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 0.92rem; }
+    .nokta {
+      width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+      font-size: 0.75rem; color: #fff; flex-shrink: 0;
+    }
+    .nokta--ok { background: var(--basari); }
+    .nokta--yok { background: var(--hata); }
+    .basari-kutu, .hata-kutu, .uyari-kutu {
+      border-radius: var(--yuvarlak-sm); padding: 12px 16px; margin-top: 12px;
+      font-size: 0.9rem; font-weight: 600; line-height: 1.5;
+    }
+    .basari-kutu { background: #e3f5ec; color: #2f7d54; }
+    .hata-kutu { background: #fce8e4; color: #b23b28; }
+    .uyari-kutu { background: #fdf1dd; color: #9a6b1e; }
+    .not-kutu {
+      background: var(--yuzey-alt); border-left: 4px solid var(--renk-ucuncul);
+      padding: 12px 16px; border-radius: var(--yuvarlak-sm); font-size: 0.88rem; margin: 10px 0 18px;
+    }
+    ul.duz { list-style: disc; padding-left: 22px; font-size: 0.9rem; }
+    ul.duz li { margin: 4px 0; }
+    code { background: var(--yuzey-alt); padding: 1px 6px; border-radius: 5px; font-size: 0.85em; }
+  </style>
+</head>
+<body>
+  <div class="container" style="max-width:760px">
+    <h1 class="kur-baslik">🛠️ Kurulum Sihirbazı</h1>
+    <p class="kur-alt">Küçük Adımlar Kreş — ilk kurulum. Bittiğinde bu sayfayı (<code>kurulum.html</code> + <code>js/kurulum.js</code>) silin.</p>
+
+    <div class="not-kutu">
+      <strong>Önerilen sıra:</strong>
+      <ul class="duz">
+        <li>Firebase Console → <code>kres</code> projesi → Authentication'da <b>E-posta/Şifre</b> aç.</li>
+        <li>Firestore Database oluştur — başlangıçta <b>“Test modu”</b> seç (kuralları sonra yayınlayacağız).</li>
+        <li><code>js/firebase-config.js</code> içindeki <code>BURAYA_*</code> alanlarını doldur.</li>
+        <li>Bu sayfada Adım 1 → 2 → 3 → (4) uygula.</li>
+        <li>En son <code>firebase deploy --only firestore:rules</code> ile kuralları yayınla.</li>
+      </ul>
+      <span class="soluk" id="oturum-durum">Oturum durumu kontrol ediliyor...</span>
+    </div>
+
+    <!-- ADIM 1 -->
+    <div class="kutu adim">
+      <h2><span class="adim__no">1</span>Firebase yapılandırması</h2>
+      <ul id="konfig-liste" style="list-style:none;margin:12px 0"></ul>
+      <div id="konfig-ozet" class="uyari-kutu"></div>
+      <button class="btn btn--primary mt-2" id="baglantiTestBtn">Bağlantıyı test et</button>
+      <div id="baglanti-sonuc" hidden></div>
+    </div>
+
+    <!-- ADIM 2 -->
+    <div class="kutu adim">
+      <h2><span class="adim__no">2</span>İlk yönetici hesabı</h2>
+      <p class="soluk mb-1">Bu form hem Firebase Authentication kullanıcısını hem de Firestore <code>users/{uid}</code> profilini (<code>rol: admin</code>) oluşturur. Firestore <b>test modunda</b> veya kurallar henüz yayınlanmamışken çalışır.</p>
+      <form id="yoneticiForm">
+        <div class="form-satir">
+          <div class="form-grup"><label>Ad</label><input name="ad" required /></div>
+          <div class="form-grup"><label>Soyad</label><input name="soyad" required /></div>
+        </div>
+        <div class="form-grup"><label>E-posta</label><input name="email" type="email" autocomplete="username" required /></div>
+        <div class="form-satir">
+          <div class="form-grup"><label>Şifre (en az 6 karakter)</label><input name="sifre" type="password" minlength="6" autocomplete="new-password" required /></div>
+          <div class="form-grup"><label>Telefon (isteğe bağlı)</label><input name="telefon" type="tel" /></div>
+        </div>
+        <button class="btn btn--primary" type="submit">Yöneticiyi oluştur</button>
+      </form>
+      <div id="yonetici-sonuc" hidden></div>
+      <div id="panelLinkler" class="satir-arasi mt-2" hidden>
+        <a class="btn btn--secondary btn--sm" href="admin.html">Yönetici Paneli</a>
+        <a class="btn btn--ghost btn--sm" href="index.html">Ana Sayfa</a>
+      </div>
+    </div>
+
+    <!-- ADIM 3 -->
+    <div class="kutu adim">
+      <h2><span class="adim__no">3</span>Google Drive fotoğraf servisi</h2>
+      <p class="soluk mb-1"><code>google-apps-script/Kod.gs</code> dosyasını <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a>'da yeni bir projeye yapıştırın → <b>Dağıt → Web uygulaması</b> (Yürüten: Ben · Erişim: Herkes) → çıkan <code>/exec</code> adresini aşağıya girip test edin, sonra <code>firebase-config.js → DRIVE_UPLOAD_URL</code> alanına yazın.</p>
+      <div class="form-grup"><label>Apps Script web uygulaması adresi (/exec)</label><input id="driveUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" /></div>
+      <button class="btn btn--primary btn--sm" id="driveGetBtn">Servisi test et (GET)</button>
+      <div id="drive-sonuc" hidden></div>
+
+      <hr style="border:none;border-top:1px solid var(--kenar);margin:18px 0" />
+      <p class="soluk mb-1"><code>DRIVE_UPLOAD_URL</code> dolu ve sayfa yenilendiyse gerçek bir yükleme testi yapabilirsiniz:</p>
+      <form id="driveYuklemeForm">
+        <div class="form-grup"><label>Test görseli</label><input id="driveDosya" type="file" accept="image/*" /></div>
+        <button class="btn btn--primary btn--sm" type="submit" id="driveYuklemeBtn">Test fotoğrafı yükle</button>
+      </form>
+      <div id="drive-yukleme-sonuc" hidden></div>
+    </div>
+
+    <!-- ADIM 4 -->
+    <div class="kutu adim">
+      <h2><span class="adim__no">4</span>Örnek veri <span class="soluk" style="font-weight:600">(isteğe bağlı)</span></h2>
+      <p class="soluk mb-1">2 sınıf (Papatyalar, Kelebekler), 2 öğretmen, 4 veli ve 4 öğrenci oluşturur (sınıf başına 2 öğrenci, her öğrenci bir veliye bağlı). Ortak şifre: <code>ornek123</code>. Panelleri hemen denemek için. Firestore <b>test modunda</b> olmalı.</p>
+      <button class="btn btn--ghost" id="ornekBtn">Örnek veri oluştur</button>
+      <div id="ornek-sonuc" hidden></div>
+    </div>
+
+    <div class="not-kutu">
+      <strong>Son adım:</strong> Kurallar yayınlanınca bu sayfa artık yönetici/örnek veri oluşturamaz (bu güvenlik içindir).
+      <code>kurulum.html</code> ve <code>js/kurulum.js</code> dosyalarını silin.
+    </div>
+  </div>
+
+  <script type="module" src="js/kurulum.js"></script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+rules_version = '2';
+
+// =============================================================
+//  Küçük Adımlar Kreş — Firestore Güvenlik Kuralları
+//  Roller: admin | ogretmen | veli  (users/{uid}.rol)
+// =============================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Yardımcılar ----------
+    function girisli() {
+      return request.auth != null;
+    }
+    function rol() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol;
+    }
+    function admin() {
+      return girisli() && rol() == 'admin';
+    }
+    function ogretmen() {
+      return girisli() && rol() == 'ogretmen';
+    }
+    function sinifOgretmeni(sinifId) {
+      return girisli() &&
+        get(/databases/$(database)/documents/siniflar/$(sinifId)).data.ogretmenId == request.auth.uid;
+    }
+    function ogrenciVelisi(ogrenciId) {
+      return girisli() &&
+        request.auth.uid in get(/databases/$(database)/documents/ogrenciler/$(ogrenciId)).data.veliIds;
+    }
+
+    // ---------- users ----------
+    match /users/{uid} {
+      // Giriş yapan herkes profilleri okuyabilir (mesajlaşma, isim gösterimi).
+      allow read: if girisli();
+      // Hesap oluşturma/güncelleme/silme yalnızca yönetici.
+      allow create, update, delete: if admin();
+    }
+
+    // ---------- siniflar ----------
+    match /siniflar/{sinifId} {
+      allow read: if girisli();
+      allow write: if admin();
+    }
+
+    // ---------- ogrenciler ----------
+    match /ogrenciler/{ogrenciId} {
+      allow read: if admin()
+        || (ogretmen() && sinifOgretmeni(resource.data.sinifId))
+        || (girisli() && request.auth.uid in resource.data.veliIds);
+      allow write: if admin();
+    }
+
+    // ---------- yoklamalar ----------
+    match /yoklamalar/{kayitId} {
+      allow read: if admin()
+        || (ogretmen() && sinifOgretmeni(resource.data.sinifId))
+        || ogrenciVelisi(resource.data.ogrenciId);
+      // Öğretmen yalnızca kendi sınıfı için yazar.
+      allow create, update: if admin()
+        || (ogretmen() && sinifOgretmeni(request.resource.data.sinifId)
+            && request.resource.data.ogretmenId == request.auth.uid);
+      allow delete: if admin();
+    }
+
+    // ---------- gunlukRaporlar ----------
+    match /gunlukRaporlar/{kayitId} {
+      allow read: if admin()
+        || (ogretmen() && sinifOgretmeni(resource.data.sinifId))
+        || ogrenciVelisi(resource.data.ogrenciId);
+      allow create, update: if admin()
+        || (ogretmen() && sinifOgretmeni(request.resource.data.sinifId)
+            && request.resource.data.ogretmenId == request.auth.uid);
+      allow delete: if admin();
+    }
+
+    // ---------- duyurular ----------
+    match /duyurular/{duyuruId} {
+      allow read: if girisli();
+      allow create: if admin()
+        || (ogretmen() && request.resource.data.yayinlayanId == request.auth.uid);
+      allow update, delete: if admin() || resource.data.yayinlayanId == request.auth.uid;
+    }
+
+    // Velinin duyuru "okundu" durumu (kendi dokümanı)
+    match /duyuruOkundu/{uid} {
+      allow read, write: if request.auth.uid == uid;
+    }
+
+    // ---------- mesajlar ----------
+    match /mesajlar/{mesajId} {
+      allow read: if girisli() && request.auth.uid in resource.data.katilimcilar;
+      allow create: if girisli()
+        && request.resource.data.gonderenId == request.auth.uid
+        && request.auth.uid in request.resource.data.katilimcilar
+        && request.resource.data.katilimcilar.size() == 2;
+      // Sadece "okundu" işaretlemek için güncelleme; katılımcılar değişemez.
+      allow update: if girisli()
+        && request.auth.uid in resource.data.katilimcilar
+        && request.resource.data.katilimcilar == resource.data.katilimcilar
+        && request.resource.data.gonderenId == resource.data.gonderenId;
+      allow delete: if admin();
+    }
+
+    // ---------- odemeler ----------
+    match /odemeler/{odemeId} {
+      allow read: if admin() || (girisli() && resource.data.veliId == request.auth.uid);
+      allow write: if admin();
+    }
+
+    // ---------- fotograflar (Google Drive'a yüklenir; burada yalnızca üstveri) ----------
+    // hedef: "okul" | sinifId
+    match /fotograflar/{fotoId} {
+      allow read: if girisli();
+      // Yönetici okula veya herhangi bir sınıfa; öğretmen yalnızca kendi sınıfına.
+      allow create: if request.resource.data.yukleyenId == request.auth.uid && (
+        admin()
+        || (ogretmen()
+            && request.resource.data.hedef != 'okul'
+            && sinifOgretmeni(request.resource.data.hedef))
+      );
+      allow update, delete: if admin() || resource.data.yukleyenId == request.auth.uid;
+    }
+  }
+}
