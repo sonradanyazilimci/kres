@@ -4,16 +4,16 @@
 // =============================================================
 
 import {
-  collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc,
+  getDoc, getDocs, addDoc, setDoc, updateDoc,
   query, where, onSnapshot, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-import { db, ROLES } from "./firebase-config.js";
 import { sayfaKorumasi, cikisYap } from "./auth.js";
+import { kol, bel, aktifKres, kilitEkraniGoster } from "./kres.js";
 import {
   $, $$, el, escapeHtml, toast, setLoading, emptyState, tabloBos,
   formatDate, formatDateTime, isoDate, yasHesapla, basHarfler, paraFormat,
-  firebaseHata, kurPanelGezinme, kurCikis, kullaniciRozeti
+  firebaseHata, kurPanelGezinme, kurCikis, kullaniciRozeti, openModal, closeModal
 } from "./utils.js";
 
 // Var olmayan doküman okunurken güvenlik kuralları `permission-denied`
@@ -28,7 +28,9 @@ async function belgeGetir(ref) {
 }
 
 // ---------- Durum ----------
+let baglam = null;
 let profil = null;
+let yazma = true;
 let cocuklar = [];
 let seciliCocuk = null;
 let siniflar = new Map();       // sinifId -> sinif
@@ -38,19 +40,52 @@ let seciliMesajKisi = null;
 let mesajAboneligi = null;
 
 // ---------- Başlangıç ----------
-profil = await sayfaKorumasi(ROLES.VELI);
+baglam = await sayfaKorumasi("veli");
+profil = baglam.profil || { uid: baglam.uid, ad: "Veli", soyad: "", email: "" };
+yazma = baglam.aktif;
 kullaniciRozeti(profil);
 kurCikis(() => cikisYap());
+if (!baglam.aktif) kilitEkraniGoster(aktifKres());
 
 kurPanelGezinme({
   ozet: "Özet", raporlar: "Günlük Raporlar", yoklama: "Yoklama",
   galeri: "Galeri", duyurular: "Duyurular", mesajlar: "Mesajlar", odemeler: "Ödemeler"
 }, gorunumDegisti);
 
+// KVKK açık rıza kapısı — veli ilk girişte onaylamalı
+if (baglam.aktif) await rizaKapisi();
+
 await baslat();
 
+async function rizaKapisi() {
+  const p = baglam.profil;
+  if (p && p.riza && p.riza.onay === true) return;
+  await new Promise((resolve) => {
+    const govde = el("div", {},
+      el("p", { class: "soluk mb-1" },
+        "Çocuğunuza ait fotoğraf, sağlık/alerji notu ve günlük gelişim verilerinin bu uygulama üzerinden işlenmesine ve kreş ile paylaşılmasına açık rıza veriyor musunuz? Detaylar için "),
+      el("a", { href: "aydinlatma-metni.html", target: "_blank" }, "Aydınlatma Metni"),
+      el("label", { class: "satir-arasi mt-2", style: "align-items:flex-start;gap:8px" },
+        el("input", { type: "checkbox", id: "rizaOnay" }),
+        el("span", {}, "Okudum, anladım ve açık rıza veriyorum.")),
+      el("button", { class: "btn btn--primary btn--block mt-2", id: "rizaDevam" }, "Devam Et")
+    );
+    openModal("Açık Rıza (KVKK)", govde);
+    govde.querySelector("#rizaDevam").addEventListener("click", async () => {
+      if (!govde.querySelector("#rizaOnay").checked) { toast("Devam etmek için onay kutusunu işaretleyin.", "warning"); return; }
+      try {
+        await setDoc(bel("users", profil.uid), {
+          riza: { onay: true, surum: "1.0", tarih: serverTimestamp() }
+        }, { merge: true });
+      } catch { /* yoksay */ }
+      closeModal();
+      resolve();
+    });
+  });
+}
+
 async function baslat() {
-  const oSnap = await getDocs(query(collection(db, "ogrenciler"), where("veliIds", "array-contains", profil.uid)));
+  const oSnap = await getDocs(query(kol("ogrenciler"), where("veliIds", "array-contains", profil.uid)));
   cocuklar = oSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
   if (!cocuklar.length) {
@@ -62,19 +97,19 @@ async function baslat() {
   // Sınıf + öğretmen bilgilerini getir
   const sinifIds = [...new Set(cocuklar.map((c) => c.sinifId).filter(Boolean))];
   await Promise.all(sinifIds.map(async (id) => {
-    const s = await getDoc(doc(db, "siniflar", id));
+    const s = await getDoc(bel("siniflar", id));
     if (s.exists()) {
       const sinif = { id, ...s.data() };
       siniflar.set(id, sinif);
       if (sinif.ogretmenId) {
-        const o = await getDoc(doc(db, "users", sinif.ogretmenId));
+        const o = await getDoc(bel("users", sinif.ogretmenId));
         if (o.exists()) ogretmenler.set(sinif.ogretmenId, { id: sinif.ogretmenId, ...o.data() });
       }
     }
   }));
 
   // Okunan duyurular
-  const okSnap = await getDoc(doc(db, "duyuruOkundu", profil.uid));
+  const okSnap = await getDoc(bel("duyuruOkundu", profil.uid));
   if (okSnap.exists()) okunanDuyurular = new Set(okSnap.data().okunanlar || []);
 
   // Çocuk seçici
@@ -131,7 +166,7 @@ async function ozetYukle() {
 
   // Bugünün raporu
   const bugun = isoDate();
-  const rSnap = await belgeGetir(doc(db, "gunlukRaporlar", `${c.id}_${bugun}`));
+  const rSnap = await belgeGetir(bel("gunlukRaporlar", `${c.id}_${bugun}`));
   raporGoster($("#bugun-rapor"), rSnap.exists() ? rSnap.data() : null, "Bugün için henüz rapor girilmedi.");
 }
 
@@ -157,7 +192,7 @@ async function raporYukle() {
   const tarih = $("#raporTarih").value || isoDate();
   const kap = $("#rapor-liste");
   setLoading(kap);
-  const snap = await belgeGetir(doc(db, "gunlukRaporlar", `${seciliCocuk.id}_${tarih}`));
+  const snap = await belgeGetir(bel("gunlukRaporlar", `${seciliCocuk.id}_${tarih}`));
   const kutu = el("div", {});
   raporGoster(kutu, snap.exists() ? snap.data() : null, `${formatDate(tarih)} için rapor bulunamadı.`);
   kap.innerHTML = "";
@@ -170,7 +205,7 @@ async function raporYukle() {
 async function yoklamaYukle() {
   const tablo = $("#yoklama-tablo");
   tabloBos(tablo, "Yükleniyor...");
-  const snap = await getDocs(query(collection(db, "yoklamalar"), where("ogrenciId", "==", seciliCocuk.id)));
+  const snap = await getDocs(query(kol("yoklamalar"), where("ogrenciId", "==", seciliCocuk.id)));
   const liste = snap.docs.map((d) => d.data()).sort((a, b) => (b.tarih || "").localeCompare(a.tarih || ""));
   if (!liste.length) { tabloBos(tablo, "Yoklama kaydı yok"); return; }
   const rozet = { geldi: "basari", gec: "uyari", gelmedi: "hata" };
@@ -190,7 +225,7 @@ async function galeriYukle() {
   setLoading(c);
   const sinifIds = new Set(cocuklar.map((x) => x.sinifId).filter(Boolean));
   // Tüm koleksiyonu çekip istemcide süz: çocuğun sınıfı + okul geneli.
-  const snap = await getDocs(collection(db, "fotograflar"));
+  const snap = await getDocs(kol("fotograflar"));
   const foto = snap.docs.map((d) => d.data())
     .filter((f) => f.hedef === "okul" || sinifIds.has(f.hedef))
     .sort((a, b) => (b.tarih?.seconds || 0) - (a.tarih?.seconds || 0));
@@ -215,7 +250,7 @@ async function duyurulariYukle() {
   const c = $("#duyuru-liste");
   setLoading(c);
   const sinifIds = new Set(cocuklar.map((x) => x.sinifId));
-  const snap = await getDocs(collection(db, "duyurular"));
+  const snap = await getDocs(kol("duyurular"));
   const liste = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
     .filter((d) => d.hedef === "okul" || sinifIds.has(d.hedef))
     .sort((a, b) => (b.tarih?.seconds || 0) - (a.tarih?.seconds || 0));
@@ -242,7 +277,7 @@ async function duyurulariYukle() {
 async function duyuruOkundu(id, oge) {
   okunanDuyurular.add(id);
   try {
-    await setDoc(doc(db, "duyuruOkundu", profil.uid), { okunanlar: [...okunanDuyurular] }, { merge: true });
+    await setDoc(bel("duyuruOkundu", profil.uid), { okunanlar: [...okunanDuyurular] }, { merge: true });
     oge.classList.remove("liste-oge--okunmadi");
     duyurulariYukle();
   } catch (err) { toast(firebaseHata(err), "error"); }
@@ -254,7 +289,7 @@ async function duyuruOkundu(id, oge) {
 async function odemelerYukle() {
   const tablo = $("#odeme-tablo");
   tabloBos(tablo, "Yükleniyor...");
-  const snap = await getDocs(query(collection(db, "odemeler"), where("veliId", "==", profil.uid)));
+  const snap = await getDocs(query(kol("odemeler"), where("veliId", "==", profil.uid)));
   const liste = snap.docs.map((d) => d.data())
     .sort((a, b) => (b.ay || "").localeCompare(a.ay || ""));
   if (!liste.length) { tabloBos(tablo, "Ödeme kaydı yok"); return; }
@@ -305,14 +340,14 @@ function mesajKisiSec(o) {
   $("#mesaj-yaz").querySelector("button").disabled = false;
 
   if (mesajAboneligi) mesajAboneligi();
-  const q = query(collection(db, "mesajlar"), where("katilimcilar", "array-contains", profil.uid));
+  const q = query(kol("mesajlar"), where("katilimcilar", "array-contains", profil.uid));
   mesajAboneligi = onSnapshot(q, (snap) => {
     const msgs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
       .filter((m) => m.katilimcilar.includes(o.id))
       .sort((a, b) => (a.tarih?.seconds || 0) - (b.tarih?.seconds || 0));
     renderMesajlar(msgs);
     msgs.filter((m) => m.aliciId === profil.uid && !m.okundu)
-      .forEach((m) => updateDoc(doc(db, "mesajlar", m.id), { okundu: true }).catch(() => {}));
+      .forEach((m) => updateDoc(bel("mesajlar", m.id), { okundu: true }).catch(() => {}));
   });
 }
 
@@ -332,12 +367,13 @@ function renderMesajlar(msgs) {
 
 $("#mesaj-yaz").addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (!yazma) { toast("Kreş aboneliği pasif — mesaj gönderilemiyor.", "warning"); return; }
   const inp = $("#mesaj-input");
   const metin = inp.value.trim();
   if (!metin || !seciliMesajKisi) return;
   inp.value = "";
   try {
-    await addDoc(collection(db, "mesajlar"), {
+    await addDoc(kol("mesajlar"), {
       gonderenId: profil.uid,
       aliciId: seciliMesajKisi.id,
       katilimcilar: [profil.uid, seciliMesajKisi.id],

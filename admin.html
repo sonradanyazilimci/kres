@@ -29,6 +29,7 @@
       <a href="#" data-gorunum="duyurular"><span class="i">📢</span> Duyurular</a>
       <a href="#" data-gorunum="galeri"><span class="i">📷</span> Galeri</a>
       <a href="#" data-gorunum="odemeler"><span class="i">💳</span> Ödemeler</a>
+      <a href="#" data-gorunum="ayarlar"><span class="i">⚙️</span> Ayarlar</a>
       <div class="yan-menu__alt">
         <a href="#" id="cikisBtn"><span class="i">🚪</span> Çıkış Yap</a>
       </div>
@@ -192,6 +193,76 @@
           <div class="kutu">
             <div class="kutu__ust"><h2>Ödeme Kayıtları</h2></div>
             <div class="tablo-sar"><table class="veri-tablo" id="odeme-tablo"></table></div>
+          </div>
+        </section>
+
+        <!-- AYARLAR -->
+        <section class="gorunum" id="gorunum-ayarlar">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Abonelik</h2></div>
+            <div id="abonelik-ozet" class="soluk">Yükleniyor...</div>
+          </div>
+
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Kreş Bilgileri</h2></div>
+            <form id="kresBilgiForm">
+              <div class="form-grup">
+                <label for="kresAd">Kreş Adı</label>
+                <input type="text" id="kresAd" name="ad" required />
+              </div>
+              <div class="form-satir">
+                <div class="form-grup">
+                  <label for="kresTelefon">Telefon</label>
+                  <input type="tel" id="kresTelefon" name="telefon" />
+                </div>
+                <div class="form-grup">
+                  <label for="kresRenk">Tema Rengi</label>
+                  <input type="color" id="kresRenk" name="renk" value="#ff8a5c" />
+                </div>
+              </div>
+              <button type="submit" class="btn btn--primary">Kaydet</button>
+            </form>
+          </div>
+
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Fotoğraf Servisi (Google Drive)</h2></div>
+            <p class="form-yardim mb-1">
+              Fotoğraflar kendi Google Drive'ınıza yüklenir. <code>google-apps-script/Kod.gs</code>
+              dosyasını script.google.com'da yeni bir projeye yapıştırıp <b>Web uygulaması</b> olarak
+              dağıtın (Yürüten: Ben · Erişim: Herkes), çıkan <code>/exec</code> adresini buraya girin.
+            </p>
+            <form id="driveForm">
+              <div class="form-grup">
+                <label for="driveUrl">Apps Script /exec adresi</label>
+                <input type="url" id="driveUrl" name="driveUrl" placeholder="https://script.google.com/macros/s/.../exec" />
+              </div>
+              <div class="form-grup">
+                <label for="driveSir">Yükleme sırrı (YUKLEME_SIRRI) — opsiyonel</label>
+                <input type="text" id="driveSir" name="driveSir" />
+              </div>
+              <div class="satir-arasi">
+                <button type="submit" class="btn btn--primary">Kaydet</button>
+                <button type="button" class="btn btn--ghost" id="driveTestBtn">Bağlantıyı test et</button>
+              </div>
+              <div id="drive-test-sonuc" class="soluk mt-1"></div>
+            </form>
+          </div>
+
+          <div class="kutu">
+            <div class="kutu__ust"><h2>KVKK / Veri</h2></div>
+            <ul class="duz" style="list-style:disc;padding-left:20px;font-size:.92rem;line-height:1.9">
+              <li><a href="aydinlatma-metni.html" target="_blank">Aydınlatma Metni</a></li>
+              <li><a href="kvkk-politikasi.html" target="_blank">KVKK / Gizlilik Politikası</a></li>
+              <li><a href="veri-sozlesmesi.html" target="_blank">Veri İşleme Sözleşmesi</a></li>
+            </ul>
+            <div class="satir-arasi mt-1">
+              <button type="button" class="btn btn--ghost" id="veriDisaAktarBtn">Tüm kreş verisini dışa aktar (JSON)</button>
+            </div>
+            <p class="form-yardim mt-1">
+              İşlem kayıtları (denetim günlüğü) aşağıdadır. Bu metinler örnektir; yürürlüğe koymadan
+              önce bir hukukçuya danışın ve kendi bilgilerinizle güncelleyin.
+            </p>
+            <div class="tablo-sar mt-1"><table class="veri-tablo" id="islem-tablo"></table></div>
           </div>
         </section>
       </div>

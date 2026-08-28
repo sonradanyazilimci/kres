@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gizlilik ve KVKK Politikası — Küçük Adımlar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <style>
+    .metin { max-width: 760px; margin: 0 auto; padding: 40px 0 80px; }
+    .metin h2 { margin: 28px 0 8px; font-size: 1.15rem; }
+    .metin p, .metin li { color: var(--metin-soluk); line-height: 1.8; }
+    .metin ul { list-style: disc; padding-left: 22px; margin: 8px 0; }
+    .uyari-kutu { background:#fdf1dd;color:#9a6b1e;border-radius:12px;padding:14px 18px;font-weight:700;margin-bottom:24px }
+  </style>
+</head>
+<body>
+  <header class="site-nav"><div class="container site-nav__inner">
+    <a href="index.html" class="logo"><span class="logo__mark">🧸</span><span>Küçük Adımlar</span></a>
+    <nav class="site-nav__links"><a href="index.html">Ana Sayfa</a></nav>
+  </div></header>
+
+  <main class="container metin">
+    <h1>Gizlilik ve KVKK Politikası</h1>
+    <div class="uyari-kutu">
+      ⚠️ Örnek şablon. Ticari kullanımdan önce hukuk danışmanına inceletin ve kendi bilgilerinizle güncelleyin.
+    </div>
+
+    <p>Bu politika, "Küçük Adımlar" kreş yönetim uygulamasını ("Uygulama") kullanan kreşler ("Müşteri"),
+    veliler ve personel için geçerlidir. Uygulama, her kreşin verisini birbirinden yalıtılmış şekilde saklar.</p>
+
+    <h2>Rollerin Tanımı</h2>
+    <ul>
+      <li><strong>Veri sorumlusu:</strong> hizmeti alan kreş/anaokulu.</li>
+      <li><strong>Veri işleyen:</strong> Uygulamayı sağlayan taraf ("Sağlayıcı"), yalnızca kreşin
+        talimatları doğrultusunda barındırma ve teknik hizmet sunar. Ayrıntılar için
+        <a href="veri-sozlesmesi.html">Veri İşleme Sözleşmesi</a>.</li>
+    </ul>
+
+    <h2>Toplanan Veriler</h2>
+    <p>Kimlik ve iletişim bilgileri, çocuğa ait gelişim/sağlık/fotoğraf verileri, yoklama ve ödeme kayıtları,
+    uygulama içi mesajlar, denetim (işlem) günlükleri.</p>
+
+    <h2>Altyapı ve Konum</h2>
+    <ul>
+      <li>Kimlik doğrulama ve veritabanı: Google Firebase (Firestore), bölge: Avrupa (eur3).</li>
+      <li>Fotoğraflar: her kreşin kendi Google Drive hesabı; "bağlantıya sahip herkes görüntüleyebilir"
+        olarak paylaşılır. Kreş bu paylaşımı yönetmekten sorumludur.</li>
+      <li>Çerezler: yalnızca oturum ve tercih amaçlı zorunlu çerezler/yerel depolama kullanılır; reklam/izleme çerezi yoktur.</li>
+    </ul>
+
+    <h2>Güvenlik</h2>
+    <p>Erişim rol bazlıdır (yönetici / öğretmen / veli). Öğretmen yalnızca kendi sınıfını, veli yalnızca
+    kendi çocuğunu görür. Aktarım TLS ile şifrelenir. Sunucu tarafı yetkilendirme Firestore güvenlik
+    kurallarıyla zorunlu kılınır.</p>
+
+    <h2>Saklama ve Silme</h2>
+    <p>Kreş, ayrılan öğrencilerin verilerini belirlediği süre sonunda siler/anonimleştirir. Abonelik
+    sona erdiğinde veri belirli bir süre salt-okunur tutulur, ardından talep üzerine kalıcı olarak silinir.</p>
+
+    <h2>Haklar ve İletişim</h2>
+    <p>KVKK m.11 kapsamındaki talepleriniz için ilgili kreşe veya <strong>[SAĞLAYICI İLETİŞİM]</strong>
+    adresine başvurun. Uygulama, "Verilerimi indir" (JSON dışa aktarma) ve silme talebi mekanizmaları sunar.</p>
+
+    <p style="margin-top:32px"><a href="index.html">← Ana sayfaya dön</a></p>
+  </main>
+</body>
+</html>

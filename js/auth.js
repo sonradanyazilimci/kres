@@ -1,43 +1,91 @@
 // =============================================================
-//  Kimlik Doğrulama ve Rol Yönetimi (auth.js)
-//  Giriş, çıkış, oturum durumu, rol kontrolü ve sayfa koruması.
+//  Kimlik Doğrulama + Kiracı Yönlendirme (auth.js)
+//  Çok-kiracılı: giriş sonrası /kullaniciDizini/{uid} -> kresId + rol
+//  okunur, kreş bağlamı kurulur, role göre panele yönlendirilir.
 // =============================================================
 
 import {
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  doc,
-  getDoc
+  doc, getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-import { auth, db, PANEL_BY_ROLE } from "./firebase-config.js";
+import { auth, db } from "./firebase-config.js";
 import { firebaseHata } from "./utils.js";
+import { dizinOku, superAdminMi, kresBaglamiKur, kresAktifMi } from "./kres.js";
 
-// Oturum boyunca kullanıcı profilini önbelleğe al
-let _profilCache = null;
+let _baglamCache = null;
+
+export const PANEL = {
+  admin: "admin.html",
+  ogretmen: "ogretmen.html",
+  veli: "veli.html",
+  superadmin: "yonetim.html"
+};
+
+export function hedefSayfa(rol) {
+  return PANEL[rol] || "index.html";
+}
 
 // ---------- Oturum durumu ----------
-// callback(user | null) — Firebase Auth hazır olduğunda çağrılır.
 export function onAuthReady(callback) {
   return onAuthStateChanged(auth, (user) => {
-    if (!user) _profilCache = null;
+    if (!user) _baglamCache = null;
     callback(user);
   });
+}
+
+// ---------- Oturumdaki kullanıcının bağlamını çöz ----------
+// { uid, rol, kresId, kres, aktif, profil }  (superadmin için kresId=null)
+export async function oturumBaglami(user, taze = false) {
+  if (!user) return null;
+  if (!taze && _baglamCache && _baglamCache.uid === user.uid) return _baglamCache;
+
+  // Önce süper-admin mi?
+  if (await superAdminMi(user.uid)) {
+    _baglamCache = { uid: user.uid, rol: "superadmin", kresId: null, kres: null, aktif: true, profil: null };
+    return _baglamCache;
+  }
+
+  const dizin = await dizinOku(user.uid);
+  if (!dizin || !dizin.kresId) return null; // hiçbir kreşe bağlı değil
+
+  const kres = await kresBaglamiKur(dizin.kresId);
+  const pSnap = await getDoc(doc(db, "kresler", dizin.kresId, "users", user.uid));
+  _baglamCache = {
+    uid: user.uid,
+    rol: dizin.rol,
+    kresId: dizin.kresId,
+    kres,
+    aktif: kresAktifMi(kres),
+    profil: pSnap.exists() ? { uid: user.uid, ...pSnap.data() } : null
+  };
+  return _baglamCache;
 }
 
 // ---------- Giriş ----------
 export async function girisYap(email, sifre) {
   try {
     const cred = await signInWithEmailAndPassword(auth, email, sifre);
-    const profil = await kullaniciProfili(cred.user.uid, true);
-    if (!profil) {
+    const b = await oturumBaglami(cred.user, true);
+    if (!b) {
       await signOut(auth);
-      throw new Error("Hesabınız sistemde tanımlı değil. Yöneticinize başvurun.");
+      throw new Error("Hesabınız bir kreşe bağlı değil. Yöneticinize ya da destek ekibine başvurun.");
     }
-    return profil;
+    return b;
+  } catch (err) {
+    throw new Error(firebaseHata(err));
+  }
+}
+
+// ---------- Şifre sıfırlama e-postası ----------
+export async function sifreSifirla(email) {
+  try {
+    await sendPasswordResetEmail(auth, email);
   } catch (err) {
     throw new Error(firebaseHata(err));
   }
@@ -45,50 +93,31 @@ export async function girisYap(email, sifre) {
 
 // ---------- Çıkış ----------
 export async function cikisYap(yonlendir = "index.html") {
-  _profilCache = null;
+  _baglamCache = null;
   await signOut(auth);
   if (yonlendir) window.location.href = yonlendir;
 }
 
-// ---------- Kullanıcı profili (users koleksiyonu) ----------
-export async function kullaniciProfili(uid, taze = false) {
-  if (!uid) return null;
-  if (!taze && _profilCache && _profilCache.uid === uid) return _profilCache;
-  const snap = await getDoc(doc(db, "users", uid));
-  if (!snap.exists()) return null;
-  _profilCache = { uid, ...snap.data() };
-  return _profilCache;
-}
-
-// ---------- Role göre panel yolu ----------
-export function panelYolu(rol) {
-  return PANEL_BY_ROLE[rol] || "index.html";
-}
-
-// ---------- Role göre yönlendir ----------
-export function roleGoreYonlendir(rol) {
-  window.location.href = panelYolu(rol);
-}
-
 // ---------- Sayfa koruması ----------
-// Bir panel sayfasının başında çağrılır. İzinli rol(ler)e sahip
-// olmayan veya giriş yapmamış kullanıcı index.html'e atılır.
-// Çözümlendiğinde geçerli kullanıcı profilini döndürür.
+// izinliRoller: "admin" | ["admin","ogretmen"] | "superadmin"
+// Çözüldüğünde oturum bağlamını döndürür. Yanlış rol -> kendi paneline atar.
 export function sayfaKorumasi(izinliRoller) {
   const izinli = Array.isArray(izinliRoller) ? izinliRoller : [izinliRoller];
   return new Promise((resolve) => {
     onAuthReady(async (user) => {
-      if (!user) {
-        window.location.replace("index.html");
+      if (!user) { window.location.replace("index.html"); return; }
+      let b;
+      try {
+        b = await oturumBaglami(user, true);
+      } catch {
+        b = null;
+      }
+      if (!b) { window.location.replace("index.html"); return; }
+      if (!izinli.includes(b.rol)) {
+        window.location.replace(hedefSayfa(b.rol));
         return;
       }
-      const profil = await kullaniciProfili(user.uid, true);
-      if (!profil || !izinli.includes(profil.rol)) {
-        // Yanlış rol: kendi paneline (varsa) veya ana sayfaya gönder
-        window.location.replace(profil ? panelYolu(profil.rol) : "index.html");
-        return;
-      }
-      resolve(profil);
+      resolve(b);
     });
   });
 }

@@ -5,14 +5,19 @@
 
 import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getAuth, createUserWithEmailAndPassword, signOut as ikincilCikis
+  getAuth, createUserWithEmailAndPassword, signOut as ikincilCikis,
+  sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  collection, doc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp
+  doc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { db, firebaseConfig, ROLES } from "./firebase-config.js";
+import { db, firebaseConfig } from "./firebase-config.js";
 import { driveYukle } from "./drive-upload.js";
 import { sayfaKorumasi, cikisYap } from "./auth.js";
+import {
+  kol, bel, aktifKresId, aktifKres, kresAktifMi, islemKaydet,
+  denemeBandiGoster
+} from "./kres.js";
 import {
   $, el, escapeHtml, toast, emptyState, tabloBos, openModal, closeModal,
   confirmDialog, formData, formatDateTime, formatAy, paraFormat,
@@ -20,7 +25,9 @@ import {
 } from "./utils.js";
 
 // ---------- Durum ----------
+let baglam = null;
 let profil = null;
+let yazma = true; // deneme süresi dolduysa false
 const durum = {
   kullanicilar: [],
   siniflar: [],
@@ -30,10 +37,21 @@ const durum = {
   fotograflar: []
 };
 
+function yazmaKontrol() {
+  if (!yazma) {
+    toast("Deneme süreniz doldu. Yeni kayıt/düzenleme yapılamıyor.", "warning", 5000);
+    return false;
+  }
+  return true;
+}
+
 // ---------- Başlangıç ----------
-profil = await sayfaKorumasi(ROLES.ADMIN);
+baglam = await sayfaKorumasi("admin");
+profil = baglam.profil || { uid: baglam.uid, ad: "Yönetici", soyad: "", email: "" };
+yazma = baglam.aktif;
 kullaniciRozeti(profil);
 kurCikis(() => cikisYap());
+if (aktifKres()?.plan === "deneme") denemeBandiGoster(aktifKres());
 
 const nav = kurPanelGezinme({
   "genel-bakis": "Genel Bakış",
@@ -42,8 +60,9 @@ const nav = kurPanelGezinme({
   "ogrenciler": "Öğrenciler",
   "duyurular": "Duyurular",
   "galeri": "Galeri",
-  "odemeler": "Ödemeler"
-});
+  "odemeler": "Ödemeler",
+  "ayarlar": "Ayarlar"
+}, (ad) => { if (ad === "ayarlar") ayarlariDoldur(); });
 
 // (Başlangıç çağrıları dosyanın SONUNDA — tüm `const` yardımcılar
 //  tanımlandıktan sonra çalışsın diye.)
@@ -53,12 +72,12 @@ const nav = kurPanelGezinme({
 // =============================================================
 async function hepsiniYukle() {
   const [uSnap, sSnap, oSnap, dSnap, odSnap, fSnap] = await Promise.all([
-    getDocs(collection(db, "users")),
-    getDocs(collection(db, "siniflar")),
-    getDocs(collection(db, "ogrenciler")),
-    getDocs(collection(db, "duyurular")),
-    getDocs(collection(db, "odemeler")),
-    getDocs(collection(db, "fotograflar"))
+    getDocs(kol("users")),
+    getDocs(kol("siniflar")),
+    getDocs(kol("ogrenciler")),
+    getDocs(kol("duyurular")),
+    getDocs(kol("odemeler")),
+    getDocs(kol("fotograflar"))
   ]);
   durum.kullanicilar = uSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
   durum.siniflar = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -81,8 +100,8 @@ const ogrenciAdi = (id) => {
   const o = durum.ogrenciler.find((x) => x.id === id);
   return o ? `${o.ad} ${o.soyad}` : "—";
 };
-const veliler = () => durum.kullanicilar.filter((k) => k.rol === ROLES.VELI);
-const ogretmenler = () => durum.kullanicilar.filter((k) => k.rol === ROLES.OGRETMEN);
+const veliler = () => durum.kullanicilar.filter((k) => k.rol === "veli");
+const ogretmenler = () => durum.kullanicilar.filter((k) => k.rol === "ogretmen");
 
 // =============================================================
 //  RENDER
@@ -285,6 +304,7 @@ function renderGaleri() {
 
 async function fotoYukle(e) {
   e.preventDefault();
+  if (!yazmaKontrol()) return;
   const dosya = $("#fotoDosya").files[0];
   if (!dosya) { toast("Bir fotoğraf seçin.", "warning"); return; }
   const hedef = $("#fotoHedef").value;
@@ -292,8 +312,10 @@ async function fotoYukle(e) {
   btn.disabled = true; btn.textContent = "Yükleniyor...";
   try {
     const klasor = hedef === "okul" ? "okul" : (sinifAdi(hedef) || hedef);
-    const yuklenen = await driveYukle(dosya, { klasor });
-    await addDoc(collection(db, "fotograflar"), {
+    const yuklenen = await driveYukle(dosya, {
+      url: aktifKres()?.driveUrl, sir: aktifKres()?.driveSir, klasor
+    });
+    await addDoc(kol("fotograflar"), {
       hedef,
       driveId: yuklenen.id,
       url: yuklenen.goruntuUrl,
@@ -318,7 +340,7 @@ async function fotoSil(f) {
   const ok = await confirmDialog("Bu fotoğraf galeriden kaldırılsın mı? (Google Drive'daki dosya silinmez.)");
   if (!ok) return;
   try {
-    await deleteDoc(doc(db, "fotograflar", f.id));
+    await deleteDoc(bel("fotograflar", f.id));
     toast("Fotoğraf kaldırıldı.", "success");
     await hepsiniYukle();
     renderGaleri();
@@ -406,7 +428,7 @@ function kullaniciFormu(mevcut = null) {
     !duzenle ? el("div", { class: "form-grup" },
       el("label", {}, "Geçici Şifre"),
       el("input", { name: "sifre", type: "text", required: "", minlength: "6", value: rastgeleSifre() }),
-      el("p", { class: "form-yardim" }, "Kullanıcı ilk girişte bu şifreyle giriş yapar.")
+      el("p", { class: "form-yardim" }, "Kullanıcı oluşturulunca e-posta ile şifre belirleme bağlantısı gönderilir; bu geçici şifre yedektir.")
     ) : null,
     el("button", { class: "btn btn--primary btn--block mt-1", type: "submit" },
       duzenle ? "Güncelle" : "Kullanıcı Oluştur")
@@ -414,23 +436,29 @@ function kullaniciFormu(mevcut = null) {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (!duzenle && !yazmaKontrol()) return;
     const btn = form.querySelector("button[type=submit]");
     btn.disabled = true;
     const veri = formData(form);
     try {
       if (duzenle) {
-        await updateDoc(doc(db, "users", mevcut.id), {
+        await updateDoc(bel("users", mevcut.id), {
           ad: veri.ad, soyad: veri.soyad, rol: veri.rol, telefon: veri.telefon || ""
         });
+        await updateDoc(doc(db, "kullaniciDizini", mevcut.id), { rol: veri.rol });
+        await islemKaydet(profil.uid, "kullanici-guncelle", { hedef: mevcut.id, rol: veri.rol });
         toast("Kullanıcı güncellendi.", "success");
       } else {
         const uid = await authHesabiOlustur(veri.email, veri.sifre);
-        await setDoc(doc(db, "users", uid), {
+        await setDoc(bel("users", uid), {
           uid, ad: veri.ad, soyad: veri.soyad, email: veri.email,
           rol: veri.rol, telefon: veri.telefon || "",
           olusturmaTarihi: serverTimestamp()
         });
-        toast(`Kullanıcı oluşturuldu. Şifre: ${veri.sifre}`, "success", 6000);
+        await setDoc(doc(db, "kullaniciDizini", uid), { kresId: aktifKresId(), rol: veri.rol });
+        try { await sendPasswordResetEmail(getAuth(), veri.email); } catch { /* yoksay */ }
+        await islemKaydet(profil.uid, "kullanici-olustur", { hedef: uid, email: veri.email, rol: veri.rol });
+        toast(`Kullanıcı oluşturuldu. Şifre belirleme e-postası ${veri.email} adresine gönderildi. (Geçici şifre: ${veri.sifre})`, "success", 8000);
       }
       closeModal();
       await hepsiniYukle();
@@ -445,13 +473,16 @@ function kullaniciFormu(mevcut = null) {
 }
 
 async function kullaniciSil(id) {
+  if (!yazmaKontrol()) return;
   if (id === profil.uid) { toast("Kendi hesabınızı silemezsiniz.", "warning"); return; }
   const k = durum.kullanicilar.find((x) => x.id === id);
   const ok = await confirmDialog(
     `${k.ad} ${k.soyad} kullanıcısının kaydı silinsin mi? (Firebase Authentication hesabı konsoldan ayrıca silinmelidir.)`);
   if (!ok) return;
   try {
-    await deleteDoc(doc(db, "users", id));
+    await deleteDoc(bel("users", id));
+    await deleteDoc(doc(db, "kullaniciDizini", id));
+    await islemKaydet(profil.uid, "kullanici-sil", { hedef: id, email: k.email });
     toast("Kullanıcı kaydı silindi.", "success");
     await hepsiniYukle();
     render();
@@ -499,6 +530,7 @@ function sinifFormu(mevcut = null) {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (!yazmaKontrol()) return;
     const veri = formData(form);
     const kayit = {
       ad: veri.ad, yasGrubu: veri.yasGrubu || "",
@@ -506,8 +538,8 @@ function sinifFormu(mevcut = null) {
       kapasite: Number(veri.kapasite) || 0
     };
     try {
-      if (duzenle) { await updateDoc(doc(db, "siniflar", mevcut.id), kayit); toast("Sınıf güncellendi.", "success"); }
-      else { await addDoc(collection(db, "siniflar"), kayit); toast("Sınıf oluşturuldu.", "success"); }
+      if (duzenle) { await updateDoc(bel("siniflar", mevcut.id), kayit); toast("Sınıf güncellendi.", "success"); }
+      else { await addDoc(kol("siniflar"), kayit); toast("Sınıf oluşturuldu.", "success"); }
       closeModal();
       await hepsiniYukle();
       render();
@@ -523,7 +555,7 @@ async function sinifSil(id) {
   const ok = await confirmDialog(`"${sinifAdi(id)}" sınıfı silinsin mi?`);
   if (!ok) return;
   try {
-    await deleteDoc(doc(db, "siniflar", id));
+    await deleteDoc(bel("siniflar", id));
     toast("Sınıf silindi.", "success");
     await hepsiniYukle();
     render();
@@ -575,6 +607,7 @@ function ogrenciFormu(mevcut = null) {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (!yazmaKontrol()) return;
     const btn = form.querySelector("button[type=submit]");
     btn.disabled = true; btn.textContent = "Kaydediliyor...";
     const veri = formData(form);
@@ -593,14 +626,16 @@ function ogrenciFormu(mevcut = null) {
       };
       let ref;
       if (duzenle) {
-        await updateDoc(doc(db, "ogrenciler", mevcut.id), kayit);
+        await updateDoc(bel("ogrenciler", mevcut.id), kayit);
         ref = { id: mevcut.id };
       } else {
-        ref = await addDoc(collection(db, "ogrenciler"), kayit);
+        ref = await addDoc(kol("ogrenciler"), kayit);
       }
       if (dosya) {
-        const yuklenen = await driveYukle(dosya, { klasor: "ogrenci-fotograflari" });
-        await updateDoc(doc(db, "ogrenciler", ref.id), {
+        const yuklenen = await driveYukle(dosya, {
+          url: aktifKres()?.driveUrl, sir: aktifKres()?.driveSir, klasor: "ogrenci-fotograflari"
+        });
+        await updateDoc(bel("ogrenciler", ref.id), {
           fotoUrl: yuklenen.goruntuUrl,
           fotoDriveId: yuklenen.id
         });
@@ -623,7 +658,7 @@ async function ogrenciSil(id) {
   const ok = await confirmDialog(`${o.ad} ${o.soyad} öğrencisinin kaydı silinsin mi?`);
   if (!ok) return;
   try {
-    await deleteDoc(doc(db, "ogrenciler", id));
+    await deleteDoc(bel("ogrenciler", id));
     toast("Öğrenci silindi.", "success");
     await hepsiniYukle();
     render();
@@ -635,9 +670,10 @@ async function ogrenciSil(id) {
 // =============================================================
 async function duyuruYayinla(e) {
   e.preventDefault();
+  if (!yazmaKontrol()) return;
   const veri = formData(e.target);
   try {
-    await addDoc(collection(db, "duyurular"), {
+    await addDoc(kol("duyurular"), {
       baslik: veri.baslik,
       icerik: veri.icerik,
       hedef: veri.hedef || "okul",
@@ -656,7 +692,7 @@ async function duyuruSil(id) {
   const ok = await confirmDialog("Bu duyuru silinsin mi?");
   if (!ok) return;
   try {
-    await deleteDoc(doc(db, "duyurular", id));
+    await deleteDoc(bel("duyurular", id));
     toast("Duyuru silindi.", "success");
     await hepsiniYukle();
     renderDuyurular();
@@ -668,13 +704,14 @@ async function duyuruSil(id) {
 // =============================================================
 async function odemeEkle(e) {
   e.preventDefault();
+  if (!yazmaKontrol()) return;
   const veri = formData(e.target);
   const ogr = durum.ogrenciler.find((o) => o.id === veri.ogrenciId);
   if (!ogr) { toast("Öğrenci seçin.", "warning"); return; }
   const veliId = (ogr.veliIds || [])[0] || null;
   if (!veliId) { toast("Bu öğrencinin velisi tanımlı değil.", "warning"); return; }
   try {
-    await addDoc(collection(db, "odemeler"), {
+    await addDoc(kol("odemeler"), {
       veliId,
       ogrenciId: ogr.id,
       ay: veri.ay,
@@ -694,7 +731,7 @@ async function odemeDurumCevir(id) {
   const o = durum.odemeler.find((x) => x.id === id);
   const yeni = o.durum === "odendi" ? "bekliyor" : "odendi";
   try {
-    await updateDoc(doc(db, "odemeler", id), { durum: yeni });
+    await updateDoc(bel("odemeler", id), { durum: yeni });
     o.durum = yeni;
     renderOdemeler();
   } catch (err) { toast(firebaseHata(err), "error"); }
@@ -704,10 +741,109 @@ async function odemeSil(id) {
   const ok = await confirmDialog("Bu ödeme kaydı silinsin mi?");
   if (!ok) return;
   try {
-    await deleteDoc(doc(db, "odemeler", id));
+    await deleteDoc(bel("odemeler", id));
     toast("Kayıt silindi.", "success");
     await hepsiniYukle();
     renderOdemeler();
+  } catch (err) { toast(firebaseHata(err), "error"); }
+}
+
+// =============================================================
+//  AYARLAR
+// =============================================================
+let ayarlarBagli = false;
+async function ayarlariDoldur() {
+  const k = aktifKres() || {};
+  // Abonelik özeti
+  const ozet = $("#abonelik-ozet");
+  const plan = k.plan === "deneme" ? "Deneme" : (k.plan || "-");
+  const bitis = k.denemeBitis?.toDate ? formatDateTime(k.denemeBitis) : "-";
+  ozet.innerHTML = `Plan: <strong>${escapeHtml(plan)}</strong> · Durum: <strong>${kresAktifMi(k) ? "Aktif" : "Pasif"}</strong>`
+    + (k.plan === "deneme" ? ` · Deneme bitişi: ${escapeHtml(bitis)}` : "");
+
+  $("#kresAd").value = k.ad || "";
+  $("#kresTelefon").value = k.telefon || "";
+  $("#kresRenk").value = k.marka?.renk || "#ff8a5c";
+  $("#driveUrl").value = k.driveUrl || "";
+  $("#driveSir").value = k.driveSir || "";
+
+  // İşlem kayıtları (son 50)
+  try {
+    const snap = await getDocs(kol("islemKayitlari"));
+    const kayitlar = snap.docs.map((d) => d.data())
+      .sort((a, b) => (b.tarih?.seconds || 0) - (a.tarih?.seconds || 0)).slice(0, 50);
+    const t = $("#islem-tablo");
+    if (!kayitlar.length) tabloBos(t, "Kayıt yok");
+    else t.innerHTML = `<thead><tr><th>Tarih</th><th>İşlem</th><th>Detay</th></tr></thead><tbody>`
+      + kayitlar.map((x) => `<tr><td>${escapeHtml(formatDateTime(x.tarih))}</td><td>${escapeHtml(x.islem || "")}</td><td class="soluk">${escapeHtml(JSON.stringify(x.detay || {}))}</td></tr>`).join("")
+      + `</tbody>`;
+  } catch { /* yoksay */ }
+
+  if (ayarlarBagli) return;
+  ayarlarBagli = true;
+
+  $("#kresBilgiForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!yazmaKontrol()) return;
+    const v = formData(e.target);
+    try {
+      await updateDoc(doc(db, "kresler", aktifKresId()), {
+        ad: v.ad, telefon: v.telefon || "", "marka.renk": v.renk || "#ff8a5c"
+      });
+      Object.assign(aktifKres(), { ad: v.ad, telefon: v.telefon || "" });
+      await islemKaydet(profil.uid, "kres-ayar-guncelle", {});
+      toast("Kaydedildi.", "success");
+    } catch (err) { toast(firebaseHata(err), "error"); }
+  });
+
+  $("#driveForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!yazmaKontrol()) return;
+    const v = formData(e.target);
+    try {
+      await updateDoc(doc(db, "kresler", aktifKresId()), {
+        driveUrl: v.driveUrl || "", driveSir: v.driveSir || ""
+      });
+      Object.assign(aktifKres(), { driveUrl: v.driveUrl || "", driveSir: v.driveSir || "" });
+      toast("Fotoğraf servisi ayarları kaydedildi.", "success");
+    } catch (err) { toast(firebaseHata(err), "error"); }
+  });
+
+  $("#driveTestBtn").addEventListener("click", async () => {
+    const url = $("#driveUrl").value.trim();
+    const sonuc = $("#drive-test-sonuc");
+    if (!url) { sonuc.textContent = "Önce /exec adresini girin."; return; }
+    sonuc.textContent = "Kontrol ediliyor...";
+    try {
+      const r = await fetch(url, { method: "GET" });
+      const j = await r.json();
+      sonuc.textContent = j.ok ? "✓ Servis çalışıyor: " + (j.mesaj || "OK") : "Beklenmeyen yanıt.";
+    } catch {
+      sonuc.textContent = "✕ Adrese ulaşılamadı. Dağıtım 'Herkes' erişimli mi, adres /exec ile mi bitiyor?";
+    }
+  });
+
+  $("#veriDisaAktarBtn").addEventListener("click", veriDisaAktar);
+}
+
+async function veriDisaAktar() {
+  toast("Veri toplanıyor...", "info");
+  const altlar = ["users", "siniflar", "ogrenciler", "yoklamalar", "gunlukRaporlar",
+    "duyurular", "mesajlar", "odemeler", "fotograflar", "islemKayitlari"];
+  const cikti = { kres: aktifKres(), disaAktarma: new Date().toISOString() };
+  try {
+    for (const alt of altlar) {
+      const snap = await getDocs(kol(alt));
+      cikti[alt] = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    }
+    const blob = new Blob([JSON.stringify(cikti, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `kres-veri-${isoDate()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    await islemKaydet(profil.uid, "veri-disa-aktar", {});
+    toast("Dışa aktarıldı.", "success");
   } catch (err) { toast(firebaseHata(err), "error"); }
 }
 

@@ -9,8 +9,8 @@
       "README.md",
       "firestore.rules",
       "google-apps-script/**",
-      "kurulum.html",
-      "js/kurulum.js"
+      "scripts/**",
+      "yedekler/**"
     ],
     "rewrites": [],
     "headers": [

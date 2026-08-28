@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Veri İşleme Sözleşmesi — Küçük Adımlar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <style>
+    .metin { max-width: 760px; margin: 0 auto; padding: 40px 0 80px; }
+    .metin h2 { margin: 28px 0 8px; font-size: 1.15rem; }
+    .metin p, .metin li { color: var(--metin-soluk); line-height: 1.8; }
+    .metin ul { list-style: disc; padding-left: 22px; margin: 8px 0; }
+    .uyari-kutu { background:#fdf1dd;color:#9a6b1e;border-radius:12px;padding:14px 18px;font-weight:700;margin-bottom:24px }
+  </style>
+</head>
+<body>
+  <header class="site-nav"><div class="container site-nav__inner">
+    <a href="index.html" class="logo"><span class="logo__mark">🧸</span><span>Küçük Adımlar</span></a>
+    <nav class="site-nav__links"><a href="index.html">Ana Sayfa</a></nav>
+  </div></header>
+
+  <main class="container metin">
+    <h1>Veri İşleme Sözleşmesi (Ek Protokol)</h1>
+    <div class="uyari-kutu">
+      ⚠️ Örnek şablon. İmzaya/uygulamaya koymadan önce hukuk danışmanına inceletin.
+    </div>
+
+    <p>Bu Ek Protokol, hizmet sözleşmesinin ayrılmaz parçasıdır. <strong>Müşteri</strong> (kreş) "veri
+    sorumlusu", <strong>Sağlayıcı</strong> "veri işleyen" sıfatıyla hareket eder.</p>
+
+    <h2>1. Konu ve Kapsam</h2>
+    <p>Sağlayıcı; kişisel verileri yalnızca Müşteri'nin yazılı talimatları ve bu Protokol doğrultusunda,
+    hizmetin sunulması amacıyla işler. Sağlayıcı verileri kendi amaçları için kullanamaz.</p>
+
+    <h2>2. Sağlayıcının Yükümlülükleri</h2>
+    <ul>
+      <li>Uygun teknik ve idari tedbirleri almak (erişim kontrolü, şifreleme, yetkilendirme kuralları).</li>
+      <li>Personeline gizlilik yükümlülüğü getirmek.</li>
+      <li>Veri ihlali hâlinde gecikmeksizin (en geç 72 saat içinde) Müşteri'yi bilgilendirmek.</li>
+      <li>Müşteri'nin denetim ve bilgi taleplerini karşılamak.</li>
+      <li>Alt işleyen kullanımını (Google/Firebase barındırma) bu Protokolle bildirmek.</li>
+    </ul>
+
+    <h2>3. Alt İşleyenler</h2>
+    <ul>
+      <li>Google LLC / Firebase — barındırma ve kimlik doğrulama (bölge: AB / eur3).</li>
+      <li>Fotoğraf saklama: Müşteri'nin kendi Google Drive hesabı — bu hesabın yönetimi Müşteri'dedir.</li>
+    </ul>
+
+    <h2>4. Verinin İadesi ve İmhası</h2>
+    <p>Sözleşme sona erdiğinde Sağlayıcı, Müşteri'nin talebi üzerine verileri makine-okunur formatta
+    (JSON) teslim eder ve <strong>[ör. 30 gün]</strong> içinde sistemlerinden kalıcı olarak siler
+    (yasal saklama zorunlulukları saklıdır).</p>
+
+    <h2>5. Sorumluluk</h2>
+    <p>Taraflar KVKK ve ilgili mevzuattan doğan kendi yükümlülüklerinden sorumludur. Müşteri, veliler ve
+    personelden gerekli aydınlatma ve açık rızaların alınmasından sorumludur.</p>
+
+    <p style="margin-top:32px"><a href="index.html">← Ana sayfaya dön</a></p>
+  </main>
+</body>
+</html>

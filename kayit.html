@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Kreşinizi Kaydedin — Küçük Adımlar</title>
+  <meta name="description" content="Kreşiniz için 14 gün ücretsiz deneme. Kart gerekmez." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#ff8a5c" />
+</head>
+<body>
+  <header class="site-nav">
+    <div class="container site-nav__inner">
+      <a href="index.html" class="logo"><span class="logo__mark">🧸</span><span>Küçük Adımlar</span></a>
+      <nav class="site-nav__links"><a href="index.html">Ana Sayfa</a></nav>
+    </div>
+  </header>
+
+  <main class="container" style="max-width:520px;padding:40px 0 80px">
+    <h1 style="font-size:1.9rem">Kreşinizi kaydedin</h1>
+    <p class="soluk mb-2">14 gün ücretsiz. Kredi kartı gerekmez. Deneme bitince veriniz korunur.</p>
+
+    <form id="kayitForm" class="kutu">
+      <div class="form-grup">
+        <label for="kresAd">Kreş / Anaokulu Adı</label>
+        <input type="text" id="kresAd" name="kresAd" required />
+      </div>
+      <div class="form-satir">
+        <div class="form-grup"><label for="ad">Adınız</label><input type="text" id="ad" name="ad" required /></div>
+        <div class="form-grup"><label for="soyad">Soyadınız</label><input type="text" id="soyad" name="soyad" required /></div>
+      </div>
+      <div class="form-grup">
+        <label for="email">E-posta (yönetici girişi)</label>
+        <input type="email" id="email" name="email" autocomplete="username" required />
+      </div>
+      <div class="form-satir">
+        <div class="form-grup"><label for="sifre">Şifre (min 6)</label><input type="password" id="sifre" name="sifre" minlength="6" autocomplete="new-password" required /></div>
+        <div class="form-grup"><label for="sifre2">Şifre (tekrar)</label><input type="password" id="sifre2" name="sifre2" minlength="6" autocomplete="new-password" required /></div>
+      </div>
+      <div class="form-grup">
+        <label for="telefon">Telefon (isteğe bağlı)</label>
+        <input type="tel" id="telefon" name="telefon" />
+      </div>
+      <label class="satir-arasi" style="align-items:flex-start;gap:8px;font-size:.9rem">
+        <input type="checkbox" id="kvkkOnay" style="width:auto;margin-top:3px" />
+        <span>
+          <a href="kvkk-politikasi.html" target="_blank">Gizlilik Politikası</a>,
+          <a href="aydinlatma-metni.html" target="_blank">Aydınlatma Metni</a> ve
+          <a href="veri-sozlesmesi.html" target="_blank">Veri İşleme Sözleşmesi</a>'ni okudum, kabul ediyorum.
+        </span>
+      </label>
+      <button type="submit" class="btn btn--primary btn--block mt-2" id="kayitGonder">Ücretsiz Başla</button>
+      <p class="form-yardim metin-merkez mt-1">
+        Zaten hesabınız var mı? <a href="index.html">Giriş yapın</a>
+      </p>
+    </form>
+  </main>
+
+  <script type="module" src="js/kayit.js"></script>
+  <script type="module" src="js/pwa.js"></script>
+</body>
+</html>

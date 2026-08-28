@@ -1,13 +1,11 @@
 // =============================================================
 //  Google Drive Fotoğraf Yükleme (drive-upload.js)
 //  -------------------------------------------------------------
-//  Fotoğraflar Firebase Storage yerine, tek bir Google Drive
-//  hesabına (kreş sahibinin hesabı) yüklenir. Yükleme, dağıtılan
-//  bir Google Apps Script web uygulaması üzerinden yapılır.
-//  Bkz. google-apps-script/Kod.gs ve README (Adım 4).
+//  Fotoğraflar Firebase Storage yerine her kreşin KENDİ Google
+//  Drive hesabına yüklenir. Her kreş, dağıttığı Apps Script web
+//  uygulamasının adresini ve sırrını kendi ayarlarına girer
+//  (kreş dokümanı: driveUrl / driveSir). Bkz. google-apps-script/Kod.gs.
 // =============================================================
-
-import { DRIVE_UPLOAD_URL, DRIVE_UPLOAD_SIR } from "./firebase-config.js";
 
 // ---------- Yardımcı: görseli küçült + JPEG'e çevir ----------
 // Büyük fotoğrafları makul boyuta indirir; base64 yükü küçülür.
@@ -44,18 +42,20 @@ export function resmiKucult(file, maxKenar = 1600, kalite = 0.85) {
 }
 
 // ---------- Drive'a yükle ----------
-// file: <input type=file> dosyası
-// klasor: Drive'da oluşturulacak alt klasör adı (örn. sınıf adı veya "okul")
+// file : <input type=file> dosyası
+// url  : kreşin Apps Script /exec adresi (kres.driveUrl)
+// sir  : kreşin YUKLEME_SIRRI değeri (kres.driveSir) — opsiyonel
+// klasor: Drive'da oluşturulacak alt klasör adı (sınıf adı / "okul" / "ogrenci")
 // Döner: { id, goruntuUrl, webViewLink }
-export async function driveYukle(file, { klasor = "genel", ad } = {}) {
-  if (!DRIVE_UPLOAD_URL || DRIVE_UPLOAD_URL.startsWith("BURAYA_")) {
-    throw new Error("Google Drive yükleme adresi ayarlanmamış (firebase-config.js > DRIVE_UPLOAD_URL).");
+export async function driveYukle(file, { url, sir = "", klasor = "genel", ad } = {}) {
+  if (!url || !/^https:\/\/script\.google\.com\/.*\/exec$/.test(url)) {
+    throw new Error("Bu kreş için Google Drive fotoğraf servisi ayarlanmamış. Yönetici → Ayarlar bölümünden bağlayın.");
   }
   const kucuk = await resmiKucult(file);
   const dosyaAdi = (ad || file.name || "foto").replace(/[^\w.\-]+/g, "_").slice(0, 80).replace(/\.\w+$/, "") + ".jpg";
 
   const govde = JSON.stringify({
-    sir: DRIVE_UPLOAD_SIR || "",
+    sir: sir || "",
     klasor,
     ad: dosyaAdi,
     tur: kucuk.tur,
@@ -65,7 +65,7 @@ export async function driveYukle(file, { klasor = "genel", ad } = {}) {
   let yanit;
   try {
     // Content-Type ayarlanMIYOR: "basit istek" olur, CORS ön kontrolü tetiklenmez.
-    yanit = await fetch(DRIVE_UPLOAD_URL, { method: "POST", body: govde });
+    yanit = await fetch(url, { method: "POST", body: govde });
   } catch (e) {
     throw new Error("Drive servisine ulaşılamadı. Web uygulaması dağıtımını ve erişim ayarını (‘Herkes’) kontrol edin.");
   }

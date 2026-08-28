@@ -35,6 +35,7 @@
         <a href="#siniflar">Sınıflarımız</a>
         <a href="#galeri">Galeri</a>
         <a href="#iletisim">İletişim</a>
+        <a href="kayit.html" class="btn btn--ghost">Kreşinizi Kaydedin</a>
         <a href="#" class="btn btn--primary" id="girisBtn">Giriş Yap</a>
         <a href="#" class="btn btn--secondary gizli" id="paneleGitBtn">Panele Git</a>
       </nav>
@@ -237,7 +238,8 @@
 
   <!-- ===================== SAYFA BETİĞİ ===================== -->
   <script type="module">
-    import { onAuthReady, girisYap, kullaniciProfili, panelYolu } from "./js/auth.js";
+    import { onAuthReady, girisYap, hedefSayfa } from "./js/auth.js";
+    import { dizinOku, superAdminMi } from "./js/kres.js";
     import { toast, $ } from "./js/utils.js";
 
     document.getElementById("yil").textContent = new Date().getFullYear();
@@ -292,11 +294,13 @@
       const girisBtn = $("#girisBtn");
       const paneleGit = $("#paneleGitBtn");
       if (user) {
-        const profil = await kullaniciProfili(user.uid);
-        if (profil) {
+        let rol = null;
+        if (await superAdminMi(user.uid)) rol = "superadmin";
+        else { const d = await dizinOku(user.uid); rol = d?.kresId ? d.rol : null; }
+        if (rol) {
           girisBtn.classList.add("gizli");
           paneleGit.classList.remove("gizli");
-          paneleGit.href = panelYolu(profil.rol);
+          paneleGit.href = hedefSayfa(rol);
         }
       } else {
         girisBtn.classList.remove("gizli");
@@ -313,9 +317,9 @@
       btn.disabled = true;
       btn.textContent = "Giriş yapılıyor...";
       try {
-        const profil = await girisYap(email, sifre);
-        toast("Hoş geldiniz, " + (profil.ad || "") + "!", "success");
-        setTimeout(() => (window.location.href = panelYolu(profil.rol)), 600);
+        const b = await girisYap(email, sifre);
+        toast("Hoş geldiniz" + (b.profil?.ad ? ", " + b.profil.ad : "") + "!", "success");
+        setTimeout(() => (window.location.href = hedefSayfa(b.rol)), 600);
       } catch (err) {
         toast(err.message, "error");
         btn.disabled = false;

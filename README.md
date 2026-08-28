@@ -1,270 +1,163 @@
-# Küçük Adımlar Kreş — Yönetim Uygulaması
+# Küçük Adımlar — Çok-Kiracılı Kreş Yönetim SaaS'ı
 
 Firebase (Auth + Firestore) altyapılı, framework kullanmayan (saf HTML + CSS +
-Vanilla JS / ES6 modülleri) bir kreş yönetim uygulaması. Üç rol: **admin**,
-**ogretmen**, **veli**.
+Vanilla JS / ES6 modülleri) **çok-kiracılı** kreş yönetim uygulaması.
+Her kreş kendi verisinde yalıtılmıştır; kreşler kendi kaydını açar, 14 gün
+ücretsiz dener. Fotoğraflar her kreşin **kendi Google Drive** hesabına yüklenir.
 
-**Fotoğraflar Firebase Storage yerine Google Drive'a yüklenir** — kreşin Google
-hesabına ait Drive'da tek bir klasörde toplanır (bkz. Adım 4).
-
-- `index.html` — Kreş tanıtım sitesi + giriş modalı
-- `admin.html` / `ogretmen.html` / `veli.html` — Role özel paneller
-- `css/style.css` — Tek dosya tema
-- `js/` — ES6 modülleri (`firebase-config.js`, `auth.js`, `admin.js`,
-  `ogretmen.js`, `veli.js`, `utils.js`, `drive-upload.js`, `pwa.js`, `kurulum.js`)
-- `manifest.webmanifest` + `sw.js` + `icons/` — PWA (telefona kurulabilir uygulama)
-- `google-apps-script/Kod.gs` — Drive'a yükleme yapan web servisi
-- `firestore.rules` — Firestore güvenlik kuralları
-- `kurulum.html` — **Kurulum sihirbazı** (ilk kurulumda kullanılır, sonra silinir)
-- `.firebaserc` — Firebase proje takma adı (`default` → `kres-245e9`)
+Roller: **superadmin** (sağlayıcı = siz) · **admin** (kreş yöneticisi) ·
+**ogretmen** · **veli**.
 
 ---
 
-## 0. Kısa Yol (Kurulum Sihirbazı)
+## Dosya haritası
 
-1. Firebase Console → `kres` projesi → **Authentication** → E-posta/Şifre'yi aç.
-2. **Firestore Database → Create database** → başlangıçta **“Test modu”** seç.
-3. `js/firebase-config.js` içindeki `BURAYA_*` Firebase alanlarını doldur (Adım 2).
-4. Projeyi statik sunucuyla çalıştır (`npx serve .`) ve **`http://localhost:5173/kurulum.html`** aç.
-5. Sihirbazdaki adımları uygula: bağlantı testi → ilk yönetici → Drive servisi → (örnek veri).
-6. Bitince `firebase deploy --only firestore:rules` ile kuralları yayınla.
-7. `kurulum.html` ve `js/kurulum.js` dosyalarını sil.
-
-Aşağıdaki bölümler her adımı ayrıntılı anlatır.
-
----
-
-## 1. Firebase Projesi (Auth + Firestore)
-
-Projeniz zaten hazır: **`kres`** (Google hesabı: `erhankenar4@gmail.com`).
-Aşağıdakilerin etkin olduğundan emin olun:
-
-### a) Authentication
-- **Build → Authentication → Get started**
-- **Sign-in method** → **Email/Password** → **Etkinleştir** → Kaydet.
-
-### b) Cloud Firestore
-- **Build → Firestore Database → Create database**
-- Konum seçin (örn. `eur3`).
-- Başlangıçta **“Test modu”** (test mode) seçin — böylece kurulum sihirbazı ilk
-  yöneticiyi ve örnek veriyi yazabilir. Gerçek kuralları Adım 5'te yayınlayacağız
-  ve erişim kilitlenecek.
-
-### c) Storage — **GEREKMİYOR**
-Bu uygulama Firebase Storage kullanmaz; fotoğraflar Google Drive'a gider.
-
-### d) Web uygulaması kaydı
-- **Proje Ayarları (⚙️) → Genel → "Uygulamalarınız" → Web (`</>`)**
-- Takma ad verin (örn. `web`), kaydedin.
-- Ekranda çıkan `firebaseConfig` değerlerini kopyalayın.
+| Dosya | Ne işe yarar |
+|---|---|
+| `index.html` | Tanıtım sitesi + giriş modalı + "Kreşinizi Kaydedin" |
+| `kayit.html` / `js/kayit.js` | Kreş self-servis kaydı + 14 gün deneme |
+| `admin.html` / `js/admin.js` | Kreş yönetici paneli (Ayarlar dahil) |
+| `ogretmen.html` / `js/ogretmen.js` | Öğretmen paneli |
+| `veli.html` / `js/veli.js` | Veli paneli (KVKK açık rıza kapısı) |
+| `yonetim.html` / `js/yonetim.js` | **Sağlayıcı (süper-admin) paneli** — tüm kreşler, abonelik |
+| `js/kres.js` | Kiracı bağlamı: kresId, abonelik durumu, yol yardımcıları, denetim günlüğü |
+| `js/auth.js` | Giriş, dizin okuma (`/kullaniciDizini`), role göre yönlendirme |
+| `js/drive-upload.js` | Fotoğrafı kreşin kendi Apps Script /exec adresine yükler |
+| `js/utils.js` · `js/pwa.js` | Yardımcılar · PWA kaydı |
+| `aydinlatma-metni.html` · `kvkk-politikasi.html` · `veri-sozlesmesi.html` | **KVKK metin şablonları** (hukukçuya inceletin) |
+| `firestore.rules` | Çok-kiracılı güvenlik kuralları |
+| `scripts/goc.mjs` | Eski düz koleksiyonları çok-kiracılı yapıya taşıyan tek seferlik göç |
+| `scripts/yedekle.mjs` · `.github/workflows/yedek.yml` | Yedekleme (Spark planda çalışır) |
+| `google-apps-script/Kod.gs` | Her kreşin dağıttığı Drive yükleme servisi |
+| `manifest.webmanifest` · `sw.js` · `icons/` | PWA (telefona kurulabilir uygulama) |
 
 ---
 
-## 2. `js/firebase-config.js` Dosyasını Doldurma
+## Veri Modeli (çok-kiracılı)
 
-`js/firebase-config.js` içindeki yer tutucuları gerçek değerlerle değiştirin:
-
-```js
-export const firebaseConfig = {
-  apiKey:            "AIza.......",                 // BURAYA_API_KEY
-  authDomain:        "kres-xxxx.firebaseapp.com",   // BURAYA_PROJE_ID.firebaseapp.com
-  projectId:         "kres-xxxx",                   // BURAYA_PROJE_ID
-  messagingSenderId: "1234567890",                  // BURAYA_MESSAGING_SENDER_ID
-  appId:             "1:1234567890:web:abcdef"      // BURAYA_APP_ID
-};
-
-// Google Drive yükleme adresi (Adım 4'te alınır)
-export const DRIVE_UPLOAD_URL = "https://script.google.com/macros/s/AKfycb.../exec";
-export const DRIVE_UPLOAD_SIR = ""; // Apps Script'te YUKLEME_SIRRI ayarladıysanız aynısı
+```
+/superAdmins/{uid}                         → { not }                (sağlayıcı; ilk kayıt Console'dan)
+/kullaniciDizini/{uid}                     → { kresId, rol }        (giriş sonrası yönlendirme + kurallar)
+/kresler/{kresId}                          → { ad, sahibiUid, plan("deneme"|"abonelik"),
+                                              durum("aktif"|"pasif"), denemeBitis(ts),
+                                              marka:{renk}, kvkkOnay:{surum,tarih}, driveUrl, driveSir }
+/kresler/{kresId}/users/{uid}              → { uid, ad, soyad, email, rol, telefon, riza:{onay,surum,tarih} }
+/kresler/{kresId}/siniflar/{id}            → { ad, yasGrubu, ogretmenId, kapasite }
+/kresler/{kresId}/ogrenciler/{id}          → { ad, soyad, dogumTarihi, sinifId, veliIds[], fotoUrl, fotoDriveId, alerjiler, notlar }
+/kresler/{kresId}/yoklamalar/{ogr_tarih}   → { ogrenciId, sinifId, tarih, durum, ogretmenId }
+/kresler/{kresId}/gunlukRaporlar/{ogr_tarih}
+/kresler/{kresId}/duyurular/{id}           → { baslik, icerik, hedef("okul"|sinifId), yayinlayanId, tarih }
+/kresler/{kresId}/duyuruOkundu/{veliUid}   → { okunanlar[] }
+/kresler/{kresId}/mesajlar/{id}            → { gonderenId, aliciId, katilimcilar[2], icerik, okundu, tarih }
+/kresler/{kresId}/odemeler/{id}            → { veliId, ogrenciId, ay, tutar, durum, tarih }
+/kresler/{kresId}/fotograflar/{id}         → { hedef, driveId, url, webViewLink, aciklama, yukleyenId, yukleyenRol, tarih }
+/kresler/{kresId}/islemKayitlari/{id}      → { kim, islem, detay, tarih }   (KVKK denetim günlüğü — append-only)
 ```
 
-> Not: `firebaseConfig` değerleri gizli değildir; asıl güvenlik `firestore.rules`
-> ile sağlanır. `storageBucket` alanına gerek yoktur (Storage kullanılmıyor).
+**Abonelik mantığı:** `plan == "deneme"` ise `denemeBitis` geçince kreş "pasif"
+sayılır (istemci + kurallar birlikte). Pasif kreşte **okuma serbest, yazma yok**.
+Sağlayıcı `yonetim.html`'den "Abonelik başlat" / "+30 gün" / "Pasif yap" yapar.
+*(Gerçek ödeme entegrasyonu Faz 2.)*
 
 ---
 
-## 3. İlk Yönetici (admin) Hesabı
+## Kurulum
 
-### Yöntem A — Kurulum sihirbazı (önerilen)
-Firestore **test modundayken**, statik sunucuyla `kurulum.html` sayfasını açın ve
-**Adım 2**'deki formu doldurun. Sihirbaz hem Authentication kullanıcısını hem de
-`users/{uid}` profilini (`rol: admin`) sizin için oluşturur.
+### 1. Firebase
+Proje: **`kres-245e9`** (`erhankenar4@gmail.com`). Etkin olması gerekenler:
+- **Authentication → Email/Password**
+- **Firestore Database** (bölge: `eur3`)
 
-### Yöntem B — Elle (sihirbaz çalışmazsa)
-1. **Authentication → Users → Add user** → e-posta + şifre. Oluşan **UID**'yi kopyalayın.
-2. **Firestore Database → Data → Start collection** → Koleksiyon: `users`,
-   Doküman kimliği: **kopyaladığınız UID** (otomatik kimlik değil). Alanlar:
+`js/firebase-config.js` gerçek değerlerle doludur.
 
-| Alan             | Tür       | Değer                      |
-|------------------|-----------|----------------------------|
-| `uid`            | string    | (aynı UID)                 |
-| `ad`             | string    | Sistem                     |
-| `soyad`          | string    | Yöneticisi                 |
-| `email`          | string    | admin@...                  |
-| `rol`            | string    | `admin`                    |
-| `telefon`        | string    | (isteğe bağlı)             |
-| `olusturmaTarihi`| timestamp | (şimdiki zaman)            |
-
-Bundan sonra tüm öğretmen/veli hesapları **Yönetici Paneli → Kullanıcılar →
-+ Yeni Kullanıcı** ile oluşturulur.
-
-> **Kullanıcı silme:** Panelden silme yalnızca Firestore `users` kaydını siler.
-> Auth hesabını tamamen kaldırmak için **Authentication → Users** ekranından da
-> silin.
-
----
-
-## 4. Google Drive Fotoğraf Servisi (Apps Script)
-
-Fotoğraflar, kreşin Google hesabına ait Drive'a **`google-apps-script/Kod.gs`**
-içindeki küçük web servisi üzerinden yüklenir. Kurulum:
-
-1. `erhankenar4@gmail.com` ile giriş yapın → <https://script.google.com> → **Yeni proje**.
-2. `Kod.gs` dosyasının **tüm içeriğini** editöre yapıştırın, kaydedin. Projeye bir
-   ad verin (örn. "Kreş Foto Servisi").
-3. **(Önerilir)** Sol menü → **Proje Ayarları** → **Betik özellikleri** →
-   **Betik özelliği ekle**: ad `YUKLEME_SIRRI`, değer rastgele uzun bir metin.
-   Aynı değeri `js/firebase-config.js` → `DRIVE_UPLOAD_SIR` alanına yazın.
-4. Sağ üst → **Dağıt → Yeni dağıtım** → ⚙️ → **Web uygulaması**:
-   - **Açıklama:** kres-foto
-   - **Yürüten:** *Ben (erhankenar4@gmail.com)*
-   - **Erişimi olan:** *Herkes*
-   - **Dağıt** → Google izin ekranını onaylayın (Drive erişimi ister).
-5. Çıkan **Web uygulaması URL'sini** (`.../exec` ile biter) kopyalayıp
-   `js/firebase-config.js` → `DRIVE_UPLOAD_URL` alanına yazın.
-6. Test: URL'yi tarayıcıda açın → `{"ok":true,"mesaj":"...çalışıyor."}` görmelisiniz.
-
-> Kodu ileride değiştirirseniz: **Dağıt → Dağıtımları yönet → (kalem) Düzenle →
-> Sürüm: Yeni sürüm → Dağıt**. URL sabit kalır.
->
-> Yüklenen fotoğraflar Drive'da **"Küçük Adımlar Kreş Fotoğrafları"** klasörü
-> altında, hedefe göre alt klasörlerde (`okul`, sınıf adı, `ogrenci-fotograflari`)
-> saklanır ve "bağlantıya sahip herkes görüntüleyebilir" olarak paylaşılır.
-> Uygulama görüntü adresi olarak `https://drive.google.com/thumbnail?id=...` kullanır.
->
-> **Silme:** Panelden bir fotoğrafı kaldırmak yalnızca Firestore kaydını siler;
-> Drive'daki dosya kalır. İstenirse Drive klasöründen elle silinebilir.
-
-### Kim ne yükleyebilir?
-- **Öğretmen:** yalnızca **kendi sınıfına** fotoğraf ekler.
-- **Yönetici:** **Tüm Okul**'a veya **seçtiği herhangi bir sınıfa** ekler; ayrıca
-  öğrenci profil fotoğraflarını yükler.
-- **Veli:** yükleyemez; kendi çocuğunun sınıfına ait + "Tüm Okul" fotoğraflarını görür.
-
----
-
-## 5. Firestore Kurallarını Yayınlama
-
-### Yöntem A — Firebase CLI (önerilen)
+### 2. Güvenlik kurallarını yayınla
 ```bash
-npm install -g firebase-tools
-firebase login                 # erhankenar4@gmail.com
+npm i -g firebase-tools
+firebase login
 firebase deploy --only firestore:rules
 ```
-`.firebaserc` dosyası `default → kres-245e9` (gerçek proje kimliği) olarak ayarlıdır.
-Gerekirse `firebase use --add` ile de seçebilirsiniz.
+veya Firebase Console → Firestore → **Rules** → `firestore.rules` içeriğini yapıştır → **Publish**.
 
-### Yöntem B — Konsoldan
-**Firestore Database → Rules** sekmesine `firestore.rules` içeriğini yapıştırın → **Publish**.
+### 3. İlk süper-admin (sağlayıcı)
+Firebase Console → Firestore → Data → **`superAdmins`** koleksiyonu →
+doküman kimliği = **sizin Auth UID'niz** (Authentication → Users), tek alan `not: "vendor"`.
+Artık o hesap `yonetim.html`'e girer.
+
+### 4. (İlk kez) Demo kreş / göç
+- **Yeni sistemde:** demo verisi tarayıcıdan süper-admin oturumuyla oluşturulur ya da
+  `scripts/goc.mjs` ile eski düz koleksiyonlar taşınır:
+  ```bash
+  npm i firebase-admin
+  # serviceAccountKey.json: Console → Proje Ayarları → Hizmet hesapları → Yeni özel anahtar
+  node scripts/goc.mjs ./serviceAccountKey.json <SUPERADMIN_UID>
+  ```
+- **Eski düz koleksiyonlar** (`/users`, `/siniflar`, ...) yeni kurallarda erişilemez;
+  göçten sonra Firestore Console'dan **"Delete collection"** ile silin.
+
+### 5. Yeni kreş nasıl katılır (müşteri akışı)
+1. `index.html` → **Kreşinizi Kaydedin** → `kayit.html` formu (kreş adı + yönetici + KVKK onayı).
+2. 14 gün tam erişim başlar. Yönetici panelinde üstte deneme bandı görünür.
+3. **Ayarlar → Fotoğraf Servisi:** kreş, `google-apps-script/Kod.gs`'i kendi Google
+   hesabında dağıtıp `/exec` adresini (ve varsa `YUKLEME_SIRRI`) buraya girer.
+4. **Ayarlar:** kreş adı, tema rengi, KVKK metin bağlantıları, "Tüm veriyi dışa aktar".
 
 ---
 
-## 6. Uygulamayı Çalıştırma
+## Çalıştırma
 
-### Lokal
-ES6 modülleri `file://` ile çalışmaz; statik sunucu gerekir:
 ```bash
-npx serve .
-# veya
-python -m http.server 5173
-# veya VS Code "Live Server"
+npx serve .        # veya  python -m http.server 5173
 ```
-`http://localhost:5173` adresini açın. (`localhost` Firebase Auth'ta varsayılan
-olarak izinlidir.)
-
-### Firebase Hosting'e yayınlama
+`http://localhost:5173`. PWA kurulumu ve gerçek telefon testi için **HTTPS** gerekir:
 ```bash
-firebase deploy --only hosting
-# veya kurallarla birlikte:
-firebase deploy
+firebase deploy --only hosting     # https://kres-245e9.web.app
 ```
-`https://PROJE_ID.web.app` adresinden erişilir.
-
-> **Önemli:** Uygulamayı `localhost` dışında bir alan adında yayınlarsanız, o
-> alan adını **Authentication → Settings → Authorized domains** listesine ekleyin.
-> Apps Script web uygulaması "Herkes" erişimli olduğu için ayrı bir ayar gerekmez.
 
 ---
 
-## 6.1 Telefona Uygulama Gibi Kurma (PWA)
+## Yedekleme (Spark planda)
 
-Uygulama bir **PWA**'dır (`manifest.webmanifest` + `sw.js` + `icons/`). HTTPS
-üzerinde (Firebase Hosting) yayınlandığında telefona/masaüstüne kurulabilir:
-
-- **Android / Chrome:** siteyi açın → sağ altta çıkan **"📲 Uygulamayı yükle"**
-  düğmesine dokunun (veya tarayıcı menüsü → "Uygulamayı yükle" / "Ana ekrana ekle").
-- **iPhone / Safari:** Paylaş menüsü → **"Ana Ekrana Ekle"**.
-- **Masaüstü Chrome/Edge:** adres çubuğundaki kur simgesi ya da yükle düğmesi.
-
-Kurulduktan sonra tam ekran, kendi simgesiyle bir uygulama gibi açılır ve
-uygulama kabuğu çevrimdışı önbelleğe alınır (veriler yine internet ister).
-
-> **Geliştirme notu:** Service worker uygulama dosyalarını önbelleğe alır.
-> Kod değişikliklerinden sonra değişikliği hemen görmek için `sw.js` içindeki
-> `SURUM` değerini artırın (örn. `kres-v1` → `kres-v2`) veya tarayıcıda
-> DevTools → Application → Service Workers → "Unregister" + hard refresh yapın.
-> PWA kurulumu yalnızca **HTTPS** (veya `localhost`) üzerinde çalışır.
+Cloud Functions/Scheduler yok. Seçenekler:
+- **Elle / cron:** `node scripts/yedekle.mjs ./serviceAccountKey.json ./yedekler`
+  → tüm koleksiyonları (alt-koleksiyonlar dahil) tarihli JSON olarak yazar.
+- **GitHub Actions:** `.github/workflows/yedek.yml` her gün çalışır. Repo →
+  Settings → Secrets → Actions → `FIREBASE_SA_KEY` (servis hesabı JSON'unun tamamı).
+- Kreş bazında dışa aktarma: yönetici panelinde **Ayarlar → Tüm veriyi dışa aktar**.
 
 ---
 
-## 7. Firestore Veri Modeli
+## KVKK Notları
 
-| Koleksiyon        | Alanlar |
-|-------------------|---------|
-| `users`           | uid, ad, soyad, email, rol (`admin`/`ogretmen`/`veli`), telefon, olusturmaTarihi |
-| `siniflar`        | ad, yasGrubu, ogretmenId, kapasite |
-| `ogrenciler`      | ad, soyad, dogumTarihi, sinifId, veliIds[], fotoUrl, fotoDriveId, alerjiler, notlar |
-| `yoklamalar`      | ogrenciId, sinifId, tarih (`YYYY-MM-DD`), durum (`geldi`/`gec`/`gelmedi`), ogretmenId · *dok. kimliği:* `<ogrenciId>_<tarih>` |
-| `gunlukRaporlar`  | ogrenciId, sinifId, tarih, yemek, uyku, tuvalet, ruhHali, etkinlik, not, ogretmenId · *dok. kimliği:* `<ogrenciId>_<tarih>` |
-| `duyurular`       | baslik, icerik, hedef (`okul` veya `sinifId`), yayinlayanId, tarih |
-| `duyuruOkundu`    | okunanlar[] · *dok. kimliği:* `<veliUid>` |
-| `mesajlar`        | gonderenId, aliciId, katilimcilar[2], icerik, okundu, tarih |
-| `odemeler`        | veliId, ogrenciId, ay (`YYYY-MM`), tutar, durum (`odendi`/`bekliyor`), tarih |
-| `fotograflar`     | **hedef** (`okul` veya `sinifId`), driveId, url (Drive görüntü adresi), webViewLink, aciklama, yukleyenId, yukleyenRol, tarih |
+- `aydinlatma-metni.html`, `kvkk-politikasi.html`, `veri-sozlesmesi.html` **örnek
+  şablondur** — yürürlüğe koymadan bir hukukçuya inceletin, kurum bilgilerinizle doldurun.
+- Veli ilk girişte **açık rıza** verir (fotoğraf + sağlık verisi); `users/{uid}.riza`'da saklanır.
+- Kayıtta kreş sahibi sözleşmeleri onaylar; `kresler/{id}.kvkkOnay`'da saklanır.
+- Hassas işlemler (kullanıcı oluştur/sil, veri dışa aktar, ayar değişikliği)
+  `islemKayitlari` denetim günlüğüne yazılır (yalnızca-ekleme).
 
 ---
 
-## 8. Rol Bazlı Yetkiler (özet)
+## Demo Giriş Bilgileri
 
-| İşlem | admin | ogretmen | veli |
-|---|---|---|---|
-| Kullanıcı/sınıf/öğrenci CRUD | ✔ | – | – |
-| Dashboard & ödeme kaydı | ✔ | – | – |
-| Kendi sınıfının öğrencileri | ✔ | ✔ | – |
-| Yoklama / günlük rapor | ✔ | ✔ (kendi sınıfı) | – |
-| Fotoğraf yükleme | ✔ (okul + her sınıf) | ✔ (kendi sınıfı) | – |
-| Duyuru yayınlama | ✔ (okul/sınıf) | ✔ (kendi sınıfı) | – |
-| Kendi çocuğunun raporu/yoklaması/galerisi | ✔ | – | ✔ |
-| Duyuru okuma + okundu işareti | ✔ | ✔ | ✔ |
-| Öğretmen ↔ Veli mesajlaşma | – | ✔ | ✔ |
-| Ödeme durumu görüntüleme | ✔ | – | ✔ (kendi) |
+| Rol | E-posta | Şifre |
+|---|---|---|
+| Sağlayıcı (süper-admin) | `erhankenar35@gmail.com` | `1122334455` → `yonetim.html` |
+| Demo kreş yöneticisi | `demo@kucukadimlarkres.com` | `Demo123456` |
+| Demo öğretmen | `ogretmen1.*@ornek.com` | `ornek123` |
+| Demo veli | `veli1.*@ornek.com` | `ornek123` |
+
+*(Öğretmen/veli e-postalarındaki `*` kısmı göç sırasında üretilen 5 haneli damgadır;
+kesin adresler için `yonetim.html` veya Firestore'a bakın.)*
 
 ---
 
-## 9. Sık Karşılaşılan Sorunlar
+## Sık Sorunlar
 
-- **"Missing or insufficient permissions"** → `firestore.rules` yayınlanmamış
-  veya kullanıcının `users/{uid}` profili yok (Adım 3, 5).
-- **Giriş sonrası ana sayfaya atıyor** → `users` dokümanındaki `rol` alanı yanlış
-  (`admin` / `ogretmen` / `veli`, küçük harf, Türkçe karaktersiz).
-- **Fotoğraf yüklenmiyor / "Drive servisine ulaşılamadı"** →
-  - `DRIVE_UPLOAD_URL` `/exec` ile bitiyor ve tarayıcıda açınca `ok:true` dönüyor mu?
-  - Dağıtım **"Erişimi olan: Herkes"** mi?
-  - `YUKLEME_SIRRI` ayarladıysanız `DRIVE_UPLOAD_SIR` ile birebir aynı mı?
-  - Kodu değiştirdiyseniz **yeni sürüm** yayınladınız mı?
-- **Fotoğraf yükleniyor ama görünmüyor** → Drive dosya paylaşımı "bağlantıya sahip
-  herkes" olmalı (betik bunu otomatik yapar). Kurumsal Google Workspace hesabında
-  harici paylaşım kapalıysa kişisel Gmail hesabı kullanın.
-- **Öğretmen panelinde "sınıfa atanmadınız"** → Yönetici panelinden sınıfa
-  öğretmen ataması yapın.
-- **Modül yükleme hatası** → Dosyayı `file://` ile değil statik sunucudan açın.
+- **`permission-denied`** → kurallar yayınlanmamış, kullanıcının `/kullaniciDizini/{uid}`
+  kaydı yok, ya da kreş "pasif" (deneme bitmiş) durumda yazmaya çalışılıyor.
+- **Giriş sonrası ana sayfaya atıyor** → hesabın `/kullaniciDizini` kaydı yok
+  (kreşe bağlı değil) veya `rol` alanı hatalı.
+- **Süper-admin panele giremiyor** → `/superAdmins/{uid}` dokümanı yok (Adım 3).
+- **Fotoğraf yüklenmiyor** → Ayarlar'da kreşin Drive `/exec` adresi girilmemiş /
+  dağıtım "Herkes" erişimli değil / `YUKLEME_SIRRI` eşleşmiyor.
+- **Kod değişikliği görünmüyor** → `sw.js` içindeki `SURUM`'u artırın veya hard refresh (Ctrl+Shift+R).

@@ -1,23 +1,31 @@
 /* =============================================================
  *  Küçük Adımlar Kreş — Service Worker (PWA)
  *  Uygulama kabuğunu önbelleğe alır; Firebase/Google isteklerine
- *  hiç karışmaz (her zaman ağdan).
+ *  ve fotoğraf servisine (Apps Script) hiç karışmaz.
  * ============================================================= */
 
-const SURUM = "kres-v1";
+const SURUM = "kres-v2";
 const KABUK = [
   "./",
   "./index.html",
+  "./kayit.html",
   "./admin.html",
   "./ogretmen.html",
   "./veli.html",
+  "./yonetim.html",
+  "./aydinlatma-metni.html",
+  "./kvkk-politikasi.html",
+  "./veri-sozlesmesi.html",
   "./css/style.css",
   "./js/firebase-config.js",
   "./js/utils.js",
+  "./js/kres.js",
   "./js/auth.js",
   "./js/admin.js",
   "./js/ogretmen.js",
   "./js/veli.js",
+  "./js/kayit.js",
+  "./js/yonetim.js",
   "./js/drive-upload.js",
   "./js/pwa.js",
   "./manifest.webmanifest",
@@ -30,14 +38,16 @@ const KABUK = [
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
-    caches.open(SURUM).then((c) => c.addAll(KABUK)).then(() => self.skipWaiting())
+    caches.open(SURUM)
+      .then((c) => Promise.allSettled(KABUK.map((u) => c.add(u))))
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys()
-      .then((anahtarlar) => Promise.all(anahtarlar.filter((k) => k !== SURUM).map((k) => caches.delete(k))))
+      .then((ks) => Promise.all(ks.filter((k) => k !== SURUM).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -45,16 +55,11 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const istek = e.request;
   if (istek.method !== "GET") return;
-
   const url = new URL(istek.url);
 
-  // Firebase, Google, gstatic, Apps Script → dokunma, doğrudan ağ.
-  const disKaynak = /(^|\.)(googleapis\.com|gstatic\.com|firebaseio\.com|firebaseapp\.com|google\.com|cloudfunctions\.net)$/i;
-  if (url.origin !== self.location.origin || disKaynak.test(url.hostname)) {
-    return; // varsayılan tarayıcı davranışı
-  }
+  const disKaynak = /(^|\.)(googleapis\.com|gstatic\.com|firebaseio\.com|firebaseapp\.com|google\.com|googleusercontent\.com|cloudfunctions\.net)$/i;
+  if (url.origin !== self.location.origin || disKaynak.test(url.hostname)) return;
 
-  // Aynı origin statik dosyalar: önce önbellek, arkada güncelle (stale-while-revalidate).
   e.respondWith(
     caches.match(istek).then((onbellek) => {
       const ag = fetch(istek).then((yanit) => {
@@ -69,7 +74,6 @@ self.addEventListener("fetch", (e) => {
   );
 });
 
-// Sayfadan "hemen güncelle" mesajı
 self.addEventListener("message", (e) => {
   if (e.data === "skipWaiting") self.skipWaiting();
 });
