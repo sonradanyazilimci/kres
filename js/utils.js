@@ -178,6 +178,7 @@ export function openModal(baslik, contentNode, { genis = false } = {}) {
   document.addEventListener("keydown", escToClose);
   document.body.appendChild(overlay);
   requestAnimationFrame(() => overlay.classList.add("modal-overlay--show"));
+  setTimeout(() => overlay.classList.add("modal-overlay--show"), 30);
   return { overlay, modal, close: closeModal };
 }
 

@@ -11,11 +11,12 @@ hesabına ait Drive'da tek bir klasörde toplanır (bkz. Adım 4).
 - `admin.html` / `ogretmen.html` / `veli.html` — Role özel paneller
 - `css/style.css` — Tek dosya tema
 - `js/` — ES6 modülleri (`firebase-config.js`, `auth.js`, `admin.js`,
-  `ogretmen.js`, `veli.js`, `utils.js`, `drive-upload.js`, `kurulum.js`)
+  `ogretmen.js`, `veli.js`, `utils.js`, `drive-upload.js`, `pwa.js`, `kurulum.js`)
+- `manifest.webmanifest` + `sw.js` + `icons/` — PWA (telefona kurulabilir uygulama)
 - `google-apps-script/Kod.gs` — Drive'a yükleme yapan web servisi
 - `firestore.rules` — Firestore güvenlik kuralları
 - `kurulum.html` — **Kurulum sihirbazı** (ilk kurulumda kullanılır, sonra silinir)
-- `.firebaserc` — Firebase proje takma adı (`default` → `kres`)
+- `.firebaserc` — Firebase proje takma adı (`default` → `kres-245e9`)
 
 ---
 
@@ -192,6 +193,27 @@ firebase deploy
 > **Önemli:** Uygulamayı `localhost` dışında bir alan adında yayınlarsanız, o
 > alan adını **Authentication → Settings → Authorized domains** listesine ekleyin.
 > Apps Script web uygulaması "Herkes" erişimli olduğu için ayrı bir ayar gerekmez.
+
+---
+
+## 6.1 Telefona Uygulama Gibi Kurma (PWA)
+
+Uygulama bir **PWA**'dır (`manifest.webmanifest` + `sw.js` + `icons/`). HTTPS
+üzerinde (Firebase Hosting) yayınlandığında telefona/masaüstüne kurulabilir:
+
+- **Android / Chrome:** siteyi açın → sağ altta çıkan **"📲 Uygulamayı yükle"**
+  düğmesine dokunun (veya tarayıcı menüsü → "Uygulamayı yükle" / "Ana ekrana ekle").
+- **iPhone / Safari:** Paylaş menüsü → **"Ana Ekrana Ekle"**.
+- **Masaüstü Chrome/Edge:** adres çubuğundaki kur simgesi ya da yükle düğmesi.
+
+Kurulduktan sonra tam ekran, kendi simgesiyle bir uygulama gibi açılır ve
+uygulama kabuğu çevrimdışı önbelleğe alınır (veriler yine internet ister).
+
+> **Geliştirme notu:** Service worker uygulama dosyalarını önbelleğe alır.
+> Kod değişikliklerinden sonra değişikliği hemen görmek için `sw.js` içindeki
+> `SURUM` değerini artırın (örn. `kres-v1` → `kres-v2`) veya tarayıcıda
+> DevTools → Application → Service Workers → "Unregister" + hard refresh yapın.
+> PWA kurulumu yalnızca **HTTPS** (veya `localhost`) üzerinde çalışır.
 
 ---
 

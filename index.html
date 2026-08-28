@@ -2,14 +2,21 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Küçük Adımlar Kreş — Sevgiyle büyüyoruz</title>
   <meta name="description" content="Küçük Adımlar Kreş: uzman kadro, güvenli ortam ve oyunla öğrenme temelli eğitim programı." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%B8%3C/text%3E%3C/svg%3E" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#ff8a5c" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Kreş" />
 </head>
 <body>
 
@@ -226,6 +233,8 @@
     </div>
   </div>
 
+  <script type="module" src="js/pwa.js"></script>
+
   <!-- ===================== SAYFA BETİĞİ ===================== -->
   <script type="module">
     import { onAuthReady, girisYap, kullaniciProfili, panelYolu } from "./js/auth.js";
@@ -241,9 +250,30 @@
       if (e.target.tagName === "A") navLinks.classList.remove("site-nav__links--acik");
     });
 
+    // --- Bölüm bağlantıları: sabit navbar payıyla kaydırma ---
+    // Görünür sekmede yumuşak; her koşulda en azından anında konumlanır.
+    // (Bölüm hizası için CSS'te `section[id] { scroll-margin-top: 88px }`.)
+    document.querySelectorAll('a[href^="#"]').forEach((link) => {
+      const hedefId = link.getAttribute("href").slice(1);
+      if (!hedefId) return; // href="#" (giriş butonu) hariç
+      link.addEventListener("click", (e) => {
+        const hedef = document.getElementById(hedefId);
+        if (!hedef) return;
+        e.preventDefault();
+        const yumusak = document.visibilityState === "visible";
+        hedef.scrollIntoView({ behavior: yumusak ? "smooth" : "auto", block: "start" });
+        history.replaceState(null, "", "#" + hedefId);
+      });
+    });
+
     // --- Giriş modalı aç/kapa ---
     const modal = $("#girisModal");
-    const acModal = (e) => { e?.preventDefault(); modal.hidden = false; requestAnimationFrame(() => modal.classList.add("modal-overlay--show")); };
+    const acModal = (e) => {
+      e?.preventDefault();
+      modal.hidden = false;
+      requestAnimationFrame(() => modal.classList.add("modal-overlay--show"));
+      setTimeout(() => modal.classList.add("modal-overlay--show"), 30);
+    };
     const kapatModal = () => { modal.classList.remove("modal-overlay--show"); setTimeout(() => (modal.hidden = true), 200); };
     $("#girisBtn").addEventListener("click", acModal);
     $("#footerGirisBtn").addEventListener("click", acModal);
