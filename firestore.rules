@@ -60,6 +60,14 @@ service cloud.firestore {
     }
 
     // =========================================================
+    //  Site icerigi (anasayfa metinleri) — herkese acik okuma
+    // =========================================================
+    match /site/{belge} {
+      allow read: if true;                  // giris yapmamis ziyaretci de okur
+      allow write: if superAdmin();
+    }
+
+    // =========================================================
     //  Saglayici
     // =========================================================
     match /superAdmins/{u} {
@@ -202,12 +210,52 @@ service cloud.firestore {
       }
 
       // -----------------------------------------------------
-      //  odemeler
+      //  odemeler (aidat tahakkuku + veli "odedim" bildirimi)
       // -----------------------------------------------------
       match /odemeler/{id} {
         allow read: if superAdmin() || kadmin(kid)
           || (uyesi(kid) && resource.data.veliId == uid());
+        allow create, delete: if (superAdmin() || kadmin(kid)) && yazabilir(kid);
+        // Yonetici her alani gunceller; veli SADECE kendi kaydini
+        // "bildirildi" durumuna cekip 'bildirim' alanini ekleyebilir.
+        allow update: if ((superAdmin() || kadmin(kid)) && yazabilir(kid))
+          || (uyesi(kid)
+              && resource.data.veliId == uid()
+              && request.resource.data.veliId == resource.data.veliId
+              && request.resource.data.ogrenciId == resource.data.ogrenciId
+              && request.resource.data.ay == resource.data.ay
+              && request.resource.data.tutar == resource.data.tutar
+              && request.resource.data.durum == 'bildirildi'
+              && resource.data.durum != 'odendi');
+      }
+
+      // -----------------------------------------------------
+      //  talepler (ogretmen -> yonetim istekleri)
+      // -----------------------------------------------------
+      match /talepler/{id} {
+        allow read: if uyesi(kid) || superAdmin();
+        allow create: if yazabilir(kid) && (kadmin(kid)
+          || (kogretmen(kid) && request.resource.data.ogretmenId == uid()));
+        // Yonetici durum/yanit gunceller; ogretmen yalnizca kendi 'yeni' talebini.
+        allow update: if yazabilir(kid) && (kadmin(kid)
+          || (kogretmen(kid) && resource.data.ogretmenId == uid()
+              && resource.data.durum == 'yeni'));
+        allow delete: if superAdmin() || kadmin(kid)
+          || (kogretmen(kid) && resource.data.ogretmenId == uid());
+      }
+
+      // -----------------------------------------------------
+      //  izinBelgeleri (gezi / izin / belge -> veli onayi)
+      // -----------------------------------------------------
+      match /izinBelgeleri/{id} {
+        allow read: if uyesi(kid) || superAdmin();
         allow write: if (superAdmin() || kadmin(kid)) && yazabilir(kid);
+
+        match /yanitlar/{u} {
+          allow read: if uyesi(kid) || superAdmin();
+          allow write: if uid() == u && uyesi(kid)
+            && request.resource.data.karar in ['onay', 'ret'];
+        }
       }
 
       // -----------------------------------------------------
@@ -223,6 +271,15 @@ service cloud.firestore {
                   && sinifOgretmeni(kid, request.resource.data.hedef))));
         allow update, delete: if superAdmin()
           || (yazabilir(kid) && (kadmin(kid) || resource.data.yukleyenId == uid()));
+      }
+
+      // -----------------------------------------------------
+      //  aboneOdemeleri (saglayici tahsilat defteri)
+      //  Sadece super-admin yazar; kres yoneticisi kendi gecmisini gorur.
+      // -----------------------------------------------------
+      match /aboneOdemeleri/{id} {
+        allow read: if superAdmin() || kadmin(kid);
+        allow write: if superAdmin();
       }
 
       // -----------------------------------------------------

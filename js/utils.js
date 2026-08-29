@@ -273,6 +273,49 @@ export function kullaniciRozeti(profil) {
   if (av) av.textContent = basHarfler(profil.ad, profil.soyad);
 }
 
+// ---------- Günlük rapor: ortak görsel model ----------
+export const RAPOR_EMOJI = {
+  "Hepsini yedi": "😋", "Yarısını yedi": "🙂", "Az yedi": "😕", "Yemedi": "🙁",
+  "Rahat uyudu": "😴", "Kısa uyudu": "😪", "Uyumadı": "🙅",
+  "Sorunsuz": "👍", "Yardım gerekti": "🤝", "Kaza oldu": "💧",
+  "Neşeli": "😄", "Sakin": "😌", "Huzursuz": "😣", "Ağladı": "😢"
+};
+
+// Öğretmenin "Harika bir gün" ön dolumu için pozitif değerler
+export const RAPOR_HARIKA = {
+  yemek: "Hepsini yedi", uyku: "Rahat uyudu", tuvalet: "Sorunsuz", ruhHali: "Neşeli"
+};
+
+const RAPOR_ALANLARI = [
+  { k: "yemek", e: "Yemek", i: "🍽️" },
+  { k: "uyku", e: "Uyku", i: "😴" },
+  { k: "tuvalet", e: "Tuvalet", i: "🚽" },
+  { k: "ruhHali", e: "Ruh Hali", i: "💛" }
+];
+
+// Veli-dostu rapor kartı (öğretmen önizlemesi + veli görünümü ortak)
+export function raporKart(v, { baslik = "" } = {}) {
+  const kart = el("div", { class: "rapor-kart" });
+  if (baslik) kart.appendChild(el("div", { class: "rapor-kart__baslik" }, baslik));
+  const izgara = el("div", { class: "rapor-kart__izgara" });
+  RAPOR_ALANLARI.forEach(({ k, e, i }) => {
+    const deger = (v && v[k]) || "—";
+    izgara.appendChild(el("div", { class: "rapor-oge" },
+      el("span", { class: "rapor-oge__emoji" }, RAPOR_EMOJI[deger] || i),
+      el("span", { class: "rapor-oge__etiket" }, e),
+      el("span", { class: "rapor-oge__deger" }, deger)
+    ));
+  });
+  kart.appendChild(izgara);
+  const etkinlik = (v && v.etkinlik) || "";
+  const not = (v && v.not) || "";
+  if (etkinlik) kart.appendChild(el("div", { class: "rapor-kart__metin" },
+    el("strong", {}, "🎨 Günün etkinliği: "), document.createTextNode(etkinlik)));
+  if (not) kart.appendChild(el("div", { class: "rapor-kart__metin" },
+    el("strong", {}, "✏️ Öğretmen notu: "), document.createTextNode(not)));
+  return kart;
+}
+
 // ---------- Firebase hata mesajlarını Türkçeleştir ----------
 export function firebaseHata(err) {
   const kod = err?.code || "";

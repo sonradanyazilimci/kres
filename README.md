@@ -14,16 +14,17 @@ Roller: **superadmin** (sağlayıcı = siz) · **admin** (kreş yöneticisi) ·
 
 | Dosya | Ne işe yarar |
 |---|---|
-| `index.html` | Tanıtım sitesi + giriş modalı + "Kreşinizi Kaydedin" |
-| `kayit.html` / `js/kayit.js` | Kreş self-servis kaydı + 14 gün deneme |
-| `admin.html` / `js/admin.js` | Kreş yönetici paneli (Ayarlar dahil) |
-| `ogretmen.html` / `js/ogretmen.js` | Öğretmen paneli |
-| `veli.html` / `js/veli.js` | Veli paneli (KVKK açık rıza kapısı) |
-| `yonetim.html` / `js/yonetim.js` | **Sağlayıcı (süper-admin) paneli** — sistem özeti, kreş+yönetici oluşturma, her kreşe personel ekleme, şifre sıfırlama, kullanıcı/kreş silme, abonelik, süper-admin ekleme |
+| `index.html` | Tanıtım sitesi + giriş modalı + "Kreşinizi Kaydedin"; metinler `/site/anasayfa`'dan panelle güncellenebilir |
+| `kayit.html` / `js/kayit.js` | Kreş self-servis kaydı → sağlayıcı onay kuyruğu |
+| `admin.html` / `js/admin.js` | Kreş yönetici paneli — kullanıcı/sınıf/öğrenci, duyuru, tarih bazlı galeri, **aidat toplu tahakkuku + ödeme onayı**, **öğretmen talepleri**, **izin/belge gönderimi + veli onay takibi**, Ayarlar |
+| `ogretmen.html` / `js/ogretmen.js` | Öğretmen paneli — Sınıfım mini panosu, emoji'li günlük rapor çipleri + canlı önizleme, yoklamada "Tümü geldi", tarih bazlı galeri, **yönetime istek formu** |
+| `veli.html` / `js/veli.js` | Veli paneli (KVKK açık rıza kapısı); günlük rapor emoji kartı, tarih bazlı galeri, **"Ödedim" bildirimi**, **izin/belge onay-ret** |
+| `yonetim.html` / `js/yonetim.js` | **Sağlayıcı (süper-admin) paneli** — sistem özeti + toplam tahsilat, kreş onayı, istediğin gün abonelik, abonelik tahsilat defteri, anasayfa içerik editörü, kreş+yönetici oluşturma, personel ekleme, şifre sıfırlama, kullanıcı/kreş silme |
 | `js/kres.js` | Kiracı bağlamı: kresId, abonelik durumu, yol yardımcıları, denetim günlüğü |
 | `js/auth.js` | Giriş, dizin okuma (`/kullaniciDizini`), role göre yönlendirme |
+| `js/site-icerik.js` | `/site/anasayfa` içeriğini okur/yazar + index.html'e uygular |
 | `js/drive-upload.js` | Fotoğrafı kreşin kendi Apps Script /exec adresine yükler |
-| `js/utils.js` · `js/pwa.js` | Yardımcılar · PWA kaydı |
+| `js/utils.js` · `js/pwa.js` | Yardımcılar (ortak `raporKart` dahil) · PWA kaydı |
 | `aydinlatma-metni.html` · `kvkk-politikasi.html` · `veri-sozlesmesi.html` | **KVKK metin şablonları** (hukukçuya inceletin) |
 | `firestore.rules` | Çok-kiracılı güvenlik kuralları |
 | `scripts/goc.mjs` | Eski düz koleksiyonları çok-kiracılı yapıya taşıyan tek seferlik göç |
@@ -49,9 +50,17 @@ Roller: **superadmin** (sağlayıcı = siz) · **admin** (kreş yöneticisi) ·
 /kresler/{kresId}/duyurular/{id}           → { baslik, icerik, hedef("okul"|sinifId), yayinlayanId, tarih }
 /kresler/{kresId}/duyuruOkundu/{veliUid}   → { okunanlar[] }
 /kresler/{kresId}/mesajlar/{id}            → { gonderenId, aliciId, katilimcilar[2], icerik, okundu, tarih }
-/kresler/{kresId}/odemeler/{id}            → { veliId, ogrenciId, ay, tutar, durum, tarih }
-/kresler/{kresId}/fotograflar/{id}         → { hedef, driveId, url, webViewLink, aciklama, yukleyenId, yukleyenRol, tarih }
+/kresler/{kresId}/odemeler/{id}            → { veliId, ogrenciId, ay, tutar, aciklama,
+                                              durum("bekliyor"|"bildirildi"|"odendi"), tarih,
+                                              bildirim?:{tarih,yontem,not}, onay?:{tarih,onaylayanId} }   (aidat; toplu tahakkuk + veli "ödedim" bildirimi + yönetici onayı)
+/kresler/{kresId}/fotograflar/{id}         → { hedef, driveId, url, webViewLink, aciklama, yukleyenId, yukleyenRol, tarih }   (galeri gün bazlı süzülür)
+/kresler/{kresId}/talepler/{id}            → { ogretmenId, sinifId|null, baslik, icerik, oncelik,
+                                              durum("yeni"|"inceleniyor"|"tamamlandi"|"reddedildi"), yanit, tarih }   (öğretmen → yönetim isteği)
+/kresler/{kresId}/izinBelgeleri/{id}       → { tur("gezi"|"izin"|"belge"), baslik, metin, hedefSiniflar[], etkinlikTarihi, olusturanId, tarih }
+/kresler/{kresId}/izinBelgeleri/{id}/yanitlar/{veliUid} → { ogrenciId, karar("onay"|"ret"), not, tarih }   (veli onayı; her veli kendi dokümanını yazar)
+/kresler/{kresId}/aboneOdemeleri/{id}      → { tarih, tutar, yontem, not, uzatmaGun, kaydeden }   (sağlayıcı tahsilat defteri; sadece süper-admin yazar, kreş yöneticisi okur)
 /kresler/{kresId}/islemKayitlari/{id}      → { kim, islem, detay, tarih }   (KVKK denetim günlüğü — append-only)
+/site/anasayfa                             → { heroBaslik, heroLead, ozellik1Baslik, ... }   (index.html metinleri; herkese açık okuma, süper-admin yazar)
 ```
 
 **Abonelik mantığı:** `plan == "deneme"` ise `denemeBitis` geçince kreş "pasif"
@@ -84,12 +93,15 @@ doküman kimliği = **sizin Auth UID'niz** (Authentication → Users), tek alan 
 Artık o hesap `yonetim.html`'e girer.
 
 **Süper-admin yetkileri** (`yonetim.html`):
-- Sistem özeti (kreş / aktif / pasif / yönetici / öğretmen / veli sayıları)
+- Sistem özeti (kreş / aktif / onay bekleyen / pasif / öğretmen / veli sayıları + **toplam tahsilat**)
 - **+ Yeni Kreş** → kreş + yönetici hesabı oluşturur, şifreyi ekranda gösterir + şifre belirleme e-postası atar
-- Kreş **Detay** → o kreşin tüm kullanıcıları; her biri için **Şifre sıfırla** (e-posta) / **Sil**; **+ Kullanıcı Ekle** (her rol)
-- **Abonelik başlat** / **+30 gün** / **Pasif↔Aktif**
+- Kreş **Detay** → o kreşin tüm kullanıcıları; her biri için **Şifre sıfırla** (e-posta) / **Sil**; **+ Kullanıcı Ekle** (her rol); **Abonelik Ödemeleri** listesi + **+ Ödeme**
+- **Onayla** (onay bekleyen kreş) / **Abonelik/Süre** (istediğin gün) / **+30 gün** / **Pasif↔Aktif**
+- **＋ Ödeme** → abonelik tahsilatı kaydı (tarih / tutar / yöntem / not); isteğe bağlı "aboneliği X gün uzat" ile bitiş tarihini otomatik ilerletir
+- **💰 Abonelik Ödemeleri** → tüm kreşlerin tahsilat dökümü + toplam gelir
+- **🖥️ Anasayfa İçeriği** → `index.html` metinleri (hero, 6 özellik kartı, fiyat notu, iletişim bilgileri, footer) `/site/anasayfa` dokümanına yazılır; ziyaretçi sayfayı açınca uygulanır
 - **Kreş Sil** → tüm alt-koleksiyonlar + dizin kayıtları cascade silinir (kreş adı yazılarak onaylanır)
-- **+ Süper-admin** → başka bir UID'yi süper-admin yapar
+- **🛡️ Süper-admin Ekle** → başka bir UID'yi süper-admin yapar
 - Güvenlik kuralları: süper-admin **tüm sistemi okuyabilir** ve her koleksiyona yazabilir.
 
 > Auth hesabı **silme** hâlâ istemciden yapılamaz (Blaze/Admin SDK gerektirir).

@@ -17,9 +17,10 @@ import {
 import { auth, db, firebaseConfig } from "./firebase-config.js";
 import { sayfaKorumasi, cikisYap } from "./auth.js";
 import { kresAktifMi, onayBekliyorMu, kalanGun } from "./kres.js";
+import { ALANLAR, anasayfaOku, anasayfaYaz } from "./site-icerik.js";
 import {
   $, el, escapeHtml, toast, tabloBos, openModal, closeModal, confirmDialog,
-  formData, formatDate, firebaseHata, kurCikis
+  formData, formatDate, firebaseHata, kurCikis, paraFormat, isoDate
 } from "./utils.js";
 
 await sayfaKorumasi("superadmin");
@@ -28,7 +29,16 @@ kurCikis(() => cikisYap());
 
 let kresler = [];
 let kullanicilar = [];        // { uid, kresId, rol, ...profil }
+let odemeler = [];            // { id, kresId, tarih, tutar, yontem, not, ... }
 const emailByUid = new Map();
+
+const YONTEMLER = ["Havale / EFT", "Kredi Kartı", "Nakit", "Diğer"];
+const toplamTahsilat = () => odemeler.reduce((t, o) => t + (Number(o.tutar) || 0), 0);
+function sonOdeme(kresId) {
+  return odemeler
+    .filter((o) => o.kresId === kresId)
+    .sort((a, b) => (b.tarih || "").localeCompare(a.tarih || ""))[0] || null;
+}
 
 // ---------- İkincil app ile Auth hesabı ----------
 async function authHesabiOlustur(email, sifre) {
@@ -73,6 +83,15 @@ async function yukle() {
     }
   });
 
+  // Abonelik tahsilatları (her kreşin aboneOdemeleri alt koleksiyonu)
+  odemeler = [];
+  await Promise.all(kresler.map(async (k) => {
+    try {
+      const oSnap = await getDocs(collection(db, "kresler", k.id, "aboneOdemeleri"));
+      oSnap.docs.forEach((o) => odemeler.push({ id: o.id, kresId: k.id, ...o.data() }));
+    } catch { /* yoksay */ }
+  }));
+
   render();
 }
 
@@ -91,7 +110,7 @@ function render() {
       ${statKart("✅", aktif, "Aktif")}
       ${statKart("⏳", bekleyen, "Onay Bekleyen")}
       ${statKart("⏸️", kresler.length - aktif - bekleyen, "Pasif")}
-      ${statKart("🧑‍💼", say("admin"), "Yönetici")}
+      ${statKart("💰", paraFormat(toplamTahsilat()), "Toplam Tahsilat")}
       ${statKart("👩‍🏫", say("ogretmen"), "Öğretmen")}
       ${statKart("👪", say("veli"), "Veli")}
     </div>`;
@@ -101,7 +120,7 @@ function render() {
   // Onay bekleyenler en üstte
   const sirali = [...kresler].sort((a, b) => (onayBekliyorMu(b) ? 1 : 0) - (onayBekliyorMu(a) ? 1 : 0));
   t.innerHTML = `
-    <thead><tr><th>Kreş</th><th>Sahibi</th><th>Plan</th><th>Durum</th><th>Erişim Bitişi</th><th>İşlemler</th></tr></thead>
+    <thead><tr><th>Kreş</th><th>Sahibi</th><th>Plan</th><th>Durum</th><th>Erişim Bitişi</th><th>Son Ödeme</th><th>İşlemler</th></tr></thead>
     <tbody>${sirali.map((k) => {
       const a = kresAktifMi(k);
       const bek = onayBekliyorMu(k);
@@ -109,16 +128,20 @@ function render() {
       const durumRozet = bek ? "uyari" : a ? "basari" : "hata";
       const durumMetin = bek ? "Onay Bekliyor" : a ? "Aktif" : "Pasif";
       const bitisMetin = k.bitisTarihi?.toDate ? formatDate(k.bitisTarihi) + (a && kg != null ? ` (${kg}g)` : "") : "Süresiz";
+      const so = sonOdeme(k.id);
+      const soMetin = so ? `${paraFormat(so.tutar)} · ${escapeHtml(formatDate(so.tarih))}` : "—";
       return `<tr>
-        <td><strong>${escapeHtml(k.ad || "-")}</strong><br><span class="soluk">${escapeHtml(k.id)}</span></td>
-        <td class="soluk">${escapeHtml(emailByUid.get(k.sahibiUid) || k.sahibiUid || "-")}</td>
-        <td>${escapeHtml(k.plan || "-")}</td>
-        <td><span class="rozet rozet--${durumRozet}">${durumMetin}</span></td>
-        <td>${bek ? "-" : bitisMetin}</td>
-        <td class="tablo-islem">
+        <td data-label="Kreş"><strong>${escapeHtml(k.ad || "-")}</strong><br><span class="soluk">${escapeHtml(k.id)}</span></td>
+        <td data-label="Sahibi" class="soluk">${escapeHtml(emailByUid.get(k.sahibiUid) || k.sahibiUid || "-")}</td>
+        <td data-label="Plan">${escapeHtml(k.plan || "-")}</td>
+        <td data-label="Durum"><span class="rozet rozet--${durumRozet}">${durumMetin}</span></td>
+        <td data-label="Erişim Bitişi">${bek ? "-" : bitisMetin}</td>
+        <td data-label="Son Ödeme" class="soluk">${soMetin}</td>
+        <td data-label="İşlemler" class="tablo-islem">
           ${bek ? `<button class="btn btn--primary btn--sm" data-onayla="${k.id}">Onayla</button>` : ""}
           <button class="btn btn--ghost btn--sm" data-detay="${k.id}">Detay</button>
           <button class="btn btn--secondary btn--sm" data-abonelik="${k.id}">Abonelik/Süre</button>
+          <button class="btn btn--ghost btn--sm" data-odeme="${k.id}">＋ Ödeme</button>
           ${!bek ? `<button class="btn btn--ghost btn--sm" data-uzat="${k.id}">+30g</button>` : ""}
           ${!bek ? `<button class="btn ${a ? "btn--danger" : "btn--primary"} btn--sm" data-durum="${k.id}">${a ? "Pasif" : "Aktif"}</button>` : ""}
           <button class="btn btn--danger btn--sm" data-sil="${k.id}">Sil</button>
@@ -129,6 +152,7 @@ function render() {
   t.querySelectorAll("[data-onayla]").forEach((b) => b.addEventListener("click", () => sureModal(b.dataset.onayla, true)));
   t.querySelectorAll("[data-detay]").forEach((b) => b.addEventListener("click", () => kresDetay(b.dataset.detay)));
   t.querySelectorAll("[data-abonelik]").forEach((b) => b.addEventListener("click", () => sureModal(b.dataset.abonelik, false)));
+  t.querySelectorAll("[data-odeme]").forEach((b) => b.addEventListener("click", () => odemeEkleModal(b.dataset.odeme)));
   t.querySelectorAll("[data-uzat]").forEach((b) => b.addEventListener("click", () => sureUzat(b.dataset.uzat, 30)));
   t.querySelectorAll("[data-durum]").forEach((b) => b.addEventListener("click", () => durumCevir(b.dataset.durum)));
   t.querySelectorAll("[data-sil]").forEach((b) => b.addEventListener("click", () => kresSil(b.dataset.sil)));
@@ -211,9 +235,32 @@ async function kresDetay(kid) {
     el("div", { class: "satir-arasi mt-1" },
       el("button", { class: "btn btn--primary btn--sm", onClick: () => kullaniciEkleFormu(kid) }, "+ Kullanıcı Ekle")),
     el("div", { class: "tablo-sar mt-1" },
-      el("table", { class: "veri-tablo", id: "detay-kull-tablo" }))
+      el("table", { class: "veri-tablo", id: "detay-kull-tablo" })),
+    el("div", { class: "kutu__ust mt-2", style: "margin-bottom:8px" },
+      el("h3", {}, "Abonelik Ödemeleri"),
+      el("button", { class: "btn btn--primary btn--sm", onClick: () => odemeEkleModal(kid) }, "＋ Ödeme")),
+    el("div", { class: "tablo-sar", id: "detay-odeme-sar" })
   );
   openModal("Kreş Detayı — " + escapeHtml(k.ad), kap, { genis: true });
+
+  const odemeSar = kap.querySelector("#detay-odeme-sar");
+  const kresOdemeleri = odemeler.filter((o) => o.kresId === kid)
+    .sort((a, b) => (b.tarih || "").localeCompare(a.tarih || ""));
+  if (!kresOdemeleri.length) {
+    odemeSar.innerHTML = `<p class="soluk" style="padding:14px">Bu kreş için ödeme kaydı yok.</p>`;
+  } else {
+    const toplam = kresOdemeleri.reduce((t, o) => t + (Number(o.tutar) || 0), 0);
+    odemeSar.innerHTML = `<table class="veri-tablo">
+      <thead><tr><th>Tarih</th><th>Tutar</th><th>Yöntem</th><th>Not</th></tr></thead>
+      <tbody>${kresOdemeleri.map((o) => `<tr>
+        <td>${escapeHtml(formatDate(o.tarih))}</td>
+        <td><strong>${paraFormat(o.tutar)}</strong></td>
+        <td>${escapeHtml(o.yontem || "—")}</td>
+        <td class="soluk">${escapeHtml(o.not || "—")}${o.uzatmaGun ? ` · +${o.uzatmaGun}g` : ""}</td>
+      </tr>`).join("")}
+      <tr><td><strong>Toplam</strong></td><td colspan="3"><strong>${paraFormat(toplam)}</strong></td></tr>
+      </tbody></table>`;
+  }
 
   const tb = kap.querySelector("#detay-kull-tablo");
   const rozet = { admin: "mor", ogretmen: "bilgi", veli: "basari" };
@@ -388,7 +435,8 @@ async function kresSil(id) {
     btn.disabled = true; btn.textContent = "Siliniyor...";
     try {
       const altlar = ["users", "siniflar", "ogrenciler", "yoklamalar", "gunlukRaporlar",
-        "duyurular", "duyuruOkundu", "mesajlar", "odemeler", "fotograflar", "islemKayitlari"];
+        "duyurular", "duyuruOkundu", "mesajlar", "odemeler", "fotograflar",
+        "aboneOdemeleri", "talepler", "izinBelgeleri", "islemKayitlari"];
       for (const alt of altlar) {
         const snap = await getDocs(collection(db, "kresler", id, alt));
         for (let i = 0; i < snap.docs.length; i += 400) {
@@ -430,8 +478,123 @@ async function superAdminEkle() {
   openModal("Süper-admin Ekle", form);
 }
 
+// =============================================================
+//  ABONELİK TAHSİLAT DEFTERİ
+// =============================================================
+async function odemeEkleModal(kid) {
+  const k = kresler.find((x) => x.id === kid);
+  if (!k) return;
+  const form = el("form", {},
+    el("p", { class: "soluk mb-1" }, `"${k.ad}" için abonelik ödemesi kaydı.`),
+    el("div", { class: "form-satir" },
+      el("div", { class: "form-grup" }, el("label", {}, "Tarih"),
+        el("input", { name: "tarih", type: "date", required: "", value: isoDate() })),
+      el("div", { class: "form-grup" }, el("label", {}, "Tutar (₺)"),
+        el("input", { name: "tutar", type: "number", min: "0", step: "0.01", required: "" }))),
+    el("div", { class: "form-satir" },
+      el("div", { class: "form-grup" }, el("label", {}, "Yöntem"),
+        el("select", { name: "yontem" }, ...YONTEMLER.map((y) => el("option", { value: y }, y)))),
+      el("div", { class: "form-grup" }, el("label", {}, "Aboneliği uzat (gün, 0 = uzatma)"),
+        el("input", { name: "uzat", type: "number", min: "0", value: "0" }))),
+    el("div", { class: "form-grup" }, el("label", {}, "Not"),
+      el("input", { name: "not", placeholder: "Örn: Ağustos ayı aboneliği" })),
+    el("button", { class: "btn btn--primary btn--block mt-1", type: "submit" }, "Ödemeyi Kaydet")
+  );
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector("button[type=submit]");
+    btn.disabled = true; btn.textContent = "Kaydediliyor...";
+    const v = formData(form);
+    const uzat = Math.max(0, parseInt(v.uzat, 10) || 0);
+    try {
+      await addDoc(collection(db, "kresler", kid, "aboneOdemeleri"), {
+        tarih: v.tarih || isoDate(),
+        tutar: Number(v.tutar) || 0,
+        yontem: v.yontem || "Diğer",
+        not: v.not || "",
+        uzatmaGun: uzat,
+        kaydeden: auth.currentUser?.uid || "",
+        olusturma: serverTimestamp()
+      });
+      if (uzat > 0) {
+        const taban = Math.max(k.bitisTarihi?.toMillis?.() ?? 0, Date.now());
+        await updateDoc(doc(db, "kresler", kid), {
+          durum: "aktif",
+          bitisTarihi: Timestamp.fromMillis(taban + uzat * 86400000)
+        });
+      }
+      closeModal();
+      toast(uzat > 0 ? `Ödeme kaydedildi, erişim ${uzat} gün uzatıldı.` : "Ödeme kaydedildi.", "success");
+      yukle();
+    } catch (err) {
+      toast(firebaseHata(err), "error"); btn.disabled = false; btn.textContent = "Ödemeyi Kaydet";
+    }
+  });
+  openModal("Ödeme Ekle — " + escapeHtml(k.ad), form);
+}
+
+function odemelerModal() {
+  const liste = [...odemeler].sort((a, b) => (b.tarih || "").localeCompare(a.tarih || ""));
+  const kap = el("div", {},
+    el("div", { class: "stat-izgara mb-2", style: "grid-template-columns:repeat(auto-fit,minmax(150px,1fr))" },
+      el("div", { class: "stat-kart" }, el("div", { class: "stat-kart__ikon" }, "💰"),
+        el("div", {}, el("div", { class: "stat-kart__sayi" }, paraFormat(toplamTahsilat())),
+          el("div", { class: "stat-kart__etiket" }, "Toplam Tahsilat"))),
+      el("div", { class: "stat-kart" }, el("div", { class: "stat-kart__ikon" }, "🧾"),
+        el("div", {}, el("div", { class: "stat-kart__sayi" }, String(odemeler.length)),
+          el("div", { class: "stat-kart__etiket" }, "Kayıt")))
+    ),
+    el("div", { class: "tablo-sar" }, el("table", { class: "veri-tablo kres-mobil", id: "odemeler-tablo" }))
+  );
+  openModal("Abonelik Ödemeleri", kap, { genis: true });
+  const tb = kap.querySelector("#odemeler-tablo");
+  if (!liste.length) { tabloBos(tb, "Henüz ödeme kaydı yok"); return; }
+  tb.innerHTML = `<thead><tr><th>Tarih</th><th>Kreş</th><th>Tutar</th><th>Yöntem</th><th>Not</th></tr></thead>
+    <tbody>${liste.map((o) => `<tr>
+      <td data-label="Tarih">${escapeHtml(formatDate(o.tarih))}</td>
+      <td data-label="Kreş">${escapeHtml(kresAdi(o.kresId))}</td>
+      <td data-label="Tutar"><strong>${paraFormat(o.tutar)}</strong></td>
+      <td data-label="Yöntem">${escapeHtml(o.yontem || "—")}</td>
+      <td data-label="Not" class="soluk">${escapeHtml(o.not || "—")}${o.uzatmaGun ? ` · +${o.uzatmaGun}g` : ""}</td>
+    </tr>`).join("")}</tbody>`;
+}
+
+// =============================================================
+//  ANASAYFA İÇERİĞİ
+// =============================================================
+async function anasayfaModal() {
+  const v = await anasayfaOku();
+  const form = el("form", { class: "anasayfa-form" },
+    el("p", { class: "soluk mb-1" }, "Bu metinler index.html anasayfasında görünür. Boş bırakılan alanlar varsayılana döner."),
+    ...ALANLAR.map(({ k, e, cok }) =>
+      el("div", { class: "form-grup" },
+        el("label", {}, e),
+        cok
+          ? el("textarea", { name: k, rows: "2" }, v[k] || "")
+          : el("input", { name: k, value: v[k] || "" })
+      )
+    ),
+    el("button", { class: "btn btn--primary btn--block mt-1", type: "submit" }, "Kaydet")
+  );
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector("button[type=submit]");
+    btn.disabled = true; btn.textContent = "Kaydediliyor...";
+    try {
+      await anasayfaYaz(formData(form));
+      closeModal();
+      toast("Anasayfa içeriği güncellendi.", "success");
+    } catch (err) {
+      toast(firebaseHata(err), "error"); btn.disabled = false; btn.textContent = "Kaydet";
+    }
+  });
+  openModal("Anasayfa İçeriği", form, { genis: true });
+}
+
 // ---------- bağla ----------
 $("#yeniKresBtn").addEventListener("click", yeniKresFormu);
 $("#superAdminBtn").addEventListener("click", superAdminEkle);
+$("#odemelerBtn").addEventListener("click", odemelerModal);
+$("#anasayfaBtn").addEventListener("click", anasayfaModal);
 
 await yukle();

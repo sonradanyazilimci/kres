@@ -11,9 +11,9 @@ import { sayfaKorumasi, cikisYap } from "./auth.js";
 import { kol, bel, aktifKres, kilitEkraniGoster } from "./kres.js";
 import { driveYukle } from "./drive-upload.js";
 import {
-  $, el, escapeHtml, toast, setLoading, emptyState, openModal, confirmDialog,
+  $, $$, el, escapeHtml, toast, setLoading, emptyState, openModal, confirmDialog,
   formatDate, formatDateTime, isoDate, yasHesapla, basHarfler, firebaseHata,
-  kurPanelGezinme, kurCikis, kullaniciRozeti, formData
+  kurPanelGezinme, kurCikis, kullaniciRozeti, formData, raporKart, RAPOR_HARIKA
 } from "./utils.js";
 
 // Var olmayan bir doküman okunduğunda, güvenlik kuralları `resource.data`
@@ -37,6 +37,15 @@ let ogrenciler = [];
 let veliHaritasi = new Map();   // veliId -> {ad, soyad, ...}
 let seciliMesajKisi = null;
 let mesajAboneligi = null;
+let raporChipKuruldu = false;   // rapor çipleri bir kez kurulur
+let galeriTarih = isoDate();    // galeride seçili gün
+
+const RAPOR_EMOJI = {
+  "Hepsini yedi": "😋", "Yarısını yedi": "🙂", "Az yedi": "😕", "Yemedi": "🙁",
+  "Rahat uyudu": "😴", "Kısa uyudu": "😪", "Uyumadı": "🙅",
+  "Sorunsuz": "👍", "Yardım gerekti": "🤝", "Kaza oldu": "💧",
+  "Neşeli": "😄", "Sakin": "😌", "Huzursuz": "😣", "Ağladı": "😢"
+};
 
 function yazmaKontrol() {
   if (!yazma) { toast("Kreş aboneliği pasif — kayıt yapılamıyor.", "warning"); return false; }
@@ -53,8 +62,12 @@ if (!baglam.aktif) kilitEkraniGoster(aktifKres());
 
 const nav = kurPanelGezinme({
   sinifim: "Sınıfım", yoklama: "Yoklama", rapor: "Günlük Rapor",
-  galeri: "Galeri", duyurular: "Duyurular", mesajlar: "Mesajlar"
+  galeri: "Galeri", duyurular: "Duyurular", mesajlar: "Mesajlar", istek: "Yönetime İstek"
 }, gorunumDegisti);
+
+$("#istekForm").addEventListener("submit", istekGonder);
+$("#galeriTarih").addEventListener("change", (e) => { galeriTarih = e.target.value || isoDate(); galeriYukle(); });
+$("#galeriBugun").addEventListener("click", () => { galeriTarih = isoDate(); $("#galeriTarih").value = galeriTarih; galeriYukle(); });
 
 await sinifiYukle();
 
@@ -90,6 +103,35 @@ async function sinifiYukle() {
   doldurOgrenciSecici();
   $("#yoklamaTarih").value = isoDate();
   $("#raporTarih").value = isoDate();
+  sinifPanoYukle();
+}
+
+// ---------- Sınıfım: bugünün mini panosu ----------
+async function sinifPanoYukle() {
+  const kap = $("#sinif-pano");
+  if (!kap) return;
+  if (!sinif || !ogrenciler.length) { kap.innerHTML = ""; return; }
+  const bugun = isoDate();
+  const [ySnaplar, rSnaplar] = await Promise.all([
+    Promise.all(ogrenciler.map((o) => belgeGetir(bel("yoklamalar", `${o.id}_${bugun}`)))),
+    Promise.all(ogrenciler.map((o) => belgeGetir(bel("gunlukRaporlar", `${o.id}_${bugun}`))))
+  ]);
+  let geldi = 0, gec = 0, gelmedi = 0, isaretli = 0;
+  ySnaplar.forEach((s) => {
+    if (!s.exists()) return;
+    isaretli++;
+    const d = s.data().durum;
+    if (d === "geldi") geldi++; else if (d === "gec") gec++; else if (d === "gelmedi") gelmedi++;
+  });
+  const raporlu = rSnaplar.filter((s) => s.exists()).length;
+  const oge = (deger, etiket, tur) =>
+    `<div class="pano-oge pano-oge--${tur}"><div class="pano-oge__sayi">${deger}</div><div class="pano-oge__etiket">${etiket}</div></div>`;
+  kap.innerHTML =
+    oge(geldi, "Geldi", "basari") +
+    oge(gec, "Geç", "uyari") +
+    oge(gelmedi, "Gelmedi", "hata") +
+    oge(ogrenciler.length - isaretli, "İşaretsiz", "notr") +
+    oge(`${raporlu}/${ogrenciler.length}`, "Rapor girildi", "bilgi");
 }
 
 function renderOgrenciKartlari() {
@@ -103,7 +145,8 @@ function renderOgrenciKartlari() {
       el("div", { class: "alt" }, o.dogumTarihi ? `${yasHesapla(o.dogumTarihi)} yaş` : "—"),
       o.alerjiler ? el("div", { class: "rozet rozet--uyari mt-1" }, o.alerjiler) : null,
       el("div", { class: "kart-aksiyon" },
-        el("button", { class: "btn btn--ghost btn--sm", onClick: () => ogrenciDetay(o) }, "Detay")
+        el("button", { class: "btn btn--ghost btn--sm", onClick: () => ogrenciDetay(o) }, "Detay"),
+        el("button", { class: "btn btn--secondary btn--sm", onClick: () => raporlaOgrenci(o) }, "📝 Rapor")
       )
     ));
   });
@@ -135,6 +178,7 @@ const satir = (b, d) => el("div", { class: "rapor-satir" }, el("strong", {}, b),
 //  GÖRÜNÜM DEĞİŞİMİ (tembel yükleme)
 // =============================================================
 function gorunumDegisti(ad) {
+  if (ad === "istek") { isteklerimYukle(); return; }   // sınıf gerekmez
   if (!sinif) return;
   if (ad === "yoklama") yoklamaYukle();
   if (ad === "rapor") raporYukle();
@@ -148,7 +192,22 @@ function gorunumDegisti(ad) {
 // =============================================================
 $("#yoklamaTarih").addEventListener("change", yoklamaYukle);
 $("#yoklamaKaydet").addEventListener("click", yoklamaKaydet);
+$("#yoklamaTumuGeldi").addEventListener("click", yoklamaTumuGeldi);
 let yoklamaSecim = {}; // ogrenciId -> durum
+
+function durumRozet(id, durum) {
+  const d = $("#" + id);
+  if (!d) return;
+  const harita = {
+    kayitli: ["Kaydedildi", "rozet--basari"],
+    yeni: ["Henüz kaydedilmedi", "rozet--uyari"],
+    degisti: ["Kaydedilmemiş değişiklik", "rozet--uyari"],
+    kaydedildi: ["Kaydedildi ✓", "rozet--basari"]
+  };
+  const [metin, sinifAdi] = harita[durum] || ["", ""];
+  d.textContent = metin;
+  d.className = "rapor-durum rozet " + sinifAdi;
+}
 
 async function yoklamaYukle() {
   if (!sinif) return;
@@ -168,7 +227,7 @@ async function yoklamaYukle() {
     const sar = el("div", { class: "yoklama-satir" },
       avatar(o),
       el("span", { class: "isim" }, `${o.ad} ${o.soyad}`),
-      el("div", { class: "yoklama-secim" },
+      el("div", { class: "yoklama-secim", dataset: { ogrenci: o.id } },
         yoklamaBtn(o.id, "geldi", "Geldi", "sec-geldi"),
         yoklamaBtn(o.id, "gec", "Geç geldi", "sec-gec"),
         yoklamaBtn(o.id, "gelmedi", "Gelmedi", "sec-gelmedi")
@@ -176,6 +235,7 @@ async function yoklamaYukle() {
     );
     c.appendChild(sar);
   });
+  durumRozet("yoklamaDurum", Object.keys(yoklamaSecim).length ? "kayitli" : "yeni");
 }
 
 function yoklamaBtn(ogrenciId, durum, metin, sinifAdi) {
@@ -185,8 +245,20 @@ function yoklamaBtn(ogrenciId, durum, metin, sinifAdi) {
     yoklamaSecim[ogrenciId] = durum;
     b.parentElement.querySelectorAll("button").forEach((x) => x.classList.remove("aktif"));
     b.classList.add("aktif");
+    durumRozet("yoklamaDurum", "degisti");
   });
   return b;
+}
+
+// Tüm öğrencileri "geldi" işaretle
+function yoklamaTumuGeldi() {
+  if (!ogrenciler.length) return;
+  ogrenciler.forEach((o) => { yoklamaSecim[o.id] = "geldi"; });
+  $$("#yoklama-liste .yoklama-secim").forEach((grup) => {
+    grup.querySelectorAll("button").forEach((x) =>
+      x.classList.toggle("aktif", x.classList.contains("sec-geldi")));
+  });
+  durumRozet("yoklamaDurum", "degisti");
 }
 
 async function yoklamaKaydet() {
@@ -204,6 +276,8 @@ async function yoklamaKaydet() {
       })
     ));
     toast("Yoklama kaydedildi.", "success");
+    durumRozet("yoklamaDurum", "kaydedildi");
+    sinifPanoYukle();
   } catch (err) { toast(firebaseHata(err), "error"); }
   btn.disabled = false; btn.textContent = "Yoklamayı Kaydet";
 }
@@ -214,10 +288,75 @@ async function yoklamaKaydet() {
 $("#raporTarih").addEventListener("change", raporYukle);
 $("#raporOgrenci").addEventListener("change", raporYukle);
 $("#raporForm").addEventListener("submit", raporKaydet);
+$("#raporForm").addEventListener("input", () => { raporDurumAyarla("degisti"); raporOnizlemeTazele(); });
+$("#raporHarika").addEventListener("click", raporHarikaDoldur);
+$("#raporOncekiOgr").addEventListener("click", () => raporOgrenciGez(-1));
+$("#raporSonrakiOgr").addEventListener("click", () => raporOgrenciGez(1));
 
 function doldurOgrenciSecici() {
   $("#raporOgrenci").innerHTML = ogrenciler
     .map((o) => `<option value="${o.id}">${escapeHtml(o.ad)} ${escapeHtml(o.soyad)}</option>`).join("");
+  kurRaporChipleri();
+}
+
+// Her .rapor-select için emoji'li dokunmatik çip satırı oluştur (bir kez)
+function kurRaporChipleri() {
+  if (raporChipKuruldu) return;
+  raporChipKuruldu = true;
+  $$(".rapor-select").forEach((sel) => {
+    const grup = el("div", { class: "rapor-cipler" });
+    [...sel.options].forEach((opt) => {
+      const b = el("button", { type: "button", class: "rapor-cip", dataset: { deger: opt.value } },
+        el("span", { class: "e" }, RAPOR_EMOJI[opt.value] || "•"),
+        el("span", {}, opt.textContent));
+      b.addEventListener("click", () => {
+        sel.value = opt.value;
+        cipleriSenkronla(sel, grup);
+        raporDurumAyarla("degisti");
+      });
+      grup.appendChild(b);
+    });
+    sel.insertAdjacentElement("afterend", grup);
+    cipleriSenkronla(sel, grup);
+  });
+}
+function cipleriSenkronla(sel, grup) {
+  grup.querySelectorAll(".rapor-cip").forEach((b) =>
+    b.classList.toggle("aktif", b.dataset.deger === sel.value));
+  raporOnizlemeTazele();
+}
+function tumCipleriSenkronla() {
+  $$(".rapor-select").forEach((sel) => {
+    const grup = sel.nextElementSibling;
+    if (grup && grup.classList.contains("rapor-cipler")) cipleriSenkronla(sel, grup);
+  });
+}
+
+function raporOnizlemeTazele() {
+  const f = $("#raporForm");
+  const kap = $("#rapor-onizleme");
+  if (!f || !kap) return;
+  const v = {
+    yemek: f.yemek.value, uyku: f.uyku.value, tuvalet: f.tuvalet.value,
+    ruhHali: f.ruhHali.value, etkinlik: f.etkinlik.value, not: f.not.value
+  };
+  const secili = ogrenciler.find((o) => o.id === $("#raporOgrenci").value);
+  kap.innerHTML = "";
+  kap.appendChild(raporKart(v, { baslik: secili ? `${secili.ad} ${secili.soyad}` : "" }));
+}
+
+function raporDurumAyarla(durum) {
+  const d = $("#raporDurum");
+  if (!d) return;
+  const harita = {
+    kayitli: ["Kaydedildi", "rozet--basari"],
+    yeni: ["Henüz kaydedilmedi", "rozet--uyari"],
+    degisti: ["Kaydedilmemiş değişiklik", "rozet--uyari"],
+    kaydedildi: ["Kaydedildi ✓", "rozet--basari"]
+  };
+  const [metin, sinifAdi] = harita[durum] || ["", ""];
+  d.textContent = metin;
+  d.className = "rapor-durum rozet " + sinifAdi;
 }
 
 async function raporYukle() {
@@ -234,6 +373,33 @@ async function raporYukle() {
   f.ruhHali.value = v.ruhHali || "Neşeli";
   f.etkinlik.value = v.etkinlik || "";
   f.not.value = v.not || "";
+  tumCipleriSenkronla();
+  raporOnizlemeTazele();
+  raporDurumAyarla(snap.exists() ? "kayitli" : "yeni");
+}
+
+function raporHarikaDoldur() {
+  const f = $("#raporForm");
+  Object.entries(RAPOR_HARIKA).forEach(([k, val]) => { f[k].value = val; });
+  tumCipleriSenkronla();
+  raporOnizlemeTazele();
+  raporDurumAyarla("degisti");
+}
+
+function raporOgrenciGez(yon) {
+  const sec = $("#raporOgrenci");
+  const yeni = sec.selectedIndex + yon;
+  if (yeni < 0 || yeni >= sec.options.length) return;
+  sec.selectedIndex = yeni;
+  raporYukle();
+}
+
+// Sınıfım görünümünden bir öğrenci için hızlı rapor
+function raporlaOgrenci(o) {
+  nav.goster("rapor");
+  const sec = $("#raporOgrenci");
+  sec.value = o.id;
+  raporYukle();
 }
 
 async function raporKaydet(e) {
@@ -251,6 +417,8 @@ async function raporKaydet(e) {
       ogretmenId: profil.uid, guncelleme: serverTimestamp()
     });
     toast("Rapor kaydedildi.", "success");
+    raporDurumAyarla("kaydedildi");
+    sinifPanoYukle();
   } catch (err) { toast(firebaseHata(err), "error"); }
 }
 
@@ -288,16 +456,37 @@ async function fotoYukle(e) {
   btn.disabled = false; btn.textContent = "Yükle";
 }
 
+// Firestore Timestamp -> "YYYY-MM-DD"
+function fotoGunu(f) {
+  const d = f.tarih?.toDate ? f.tarih.toDate() : (f.tarih ? new Date(f.tarih) : null);
+  return d ? isoDate(d) : "";
+}
+
 async function galeriYukle() {
   if (!sinif) return;
   const c = $("#foto-izgara");
+  const tarihInput = $("#galeriTarih");
+  if (tarihInput && !tarihInput.value) tarihInput.value = galeriTarih;
   setLoading(c);
   // Tüm koleksiyonu çekip istemcide süz: kendi sınıfı + okul geneli.
   const snap = await getDocs(kol("fotograflar"));
-  const foto = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-    .filter((f) => f.hedef === sinif.id || f.hedef === "okul")
+  const hepsi = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    .filter((f) => f.hedef === sinif.id || f.hedef === "okul");
+  const bugun = isoDate();
+  const foto = hepsi.filter((f) => fotoGunu(f) === galeriTarih)
     .sort((a, b) => (b.tarih?.seconds || 0) - (a.tarih?.seconds || 0));
-  if (!foto.length) { emptyState(c, "Henüz fotoğraf yok", "📷"); return; }
+
+  const bilgi = $("#galeri-bilgi");
+  if (bilgi) {
+    bilgi.textContent = galeriTarih === bugun
+      ? `Bugünün fotoğrafları (${foto.length}). Başka bir günü görmek için tarih seçin.`
+      : `${formatDate(galeriTarih)} — ${foto.length} fotoğraf.`;
+  }
+
+  if (!foto.length) {
+    emptyState(c, galeriTarih === bugun ? "Bugün için fotoğraf yok" : `${formatDate(galeriTarih)} için fotoğraf yok`, "📷");
+    return;
+  }
   c.innerHTML = "";
   foto.forEach((f) => {
     const benim = f.yukleyenId === profil.uid;
@@ -363,6 +552,73 @@ async function duyurulariYukle() {
       el("span", { class: "rozet rozet--bilgi mt-1" }, d.hedef === "okul" ? "Tüm Okul" : "Sınıfım")
     ));
   });
+}
+
+// =============================================================
+//  YÖNETİME İSTEK
+// =============================================================
+const ISTEK_ROZET = { yeni: "uyari", inceleniyor: "bilgi", tamamlandi: "basari", reddedildi: "hata" };
+const ISTEK_METIN = { yeni: "Bekliyor", inceleniyor: "İnceleniyor", tamamlandi: "Tamamlandı", reddedildi: "Reddedildi" };
+
+async function istekGonder(e) {
+  e.preventDefault();
+  if (!yazmaKontrol()) return;
+  const v = formData(e.target);
+  const btn = $("#istekBtn");
+  btn.disabled = true; btn.textContent = "Gönderiliyor...";
+  try {
+    await addDoc(kol("talepler"), {
+      ogretmenId: profil.uid,
+      sinifId: e.target.querySelector("#istekSinif").checked ? (sinif?.id || null) : null,
+      baslik: v.baslik,
+      icerik: v.icerik,
+      oncelik: v.oncelik || "orta",
+      durum: "yeni",
+      yanit: "",
+      tarih: serverTimestamp()
+    });
+    e.target.reset();
+    toast("İsteğiniz yönetime iletildi.", "success");
+    isteklerimYukle();
+  } catch (err) { toast(firebaseHata(err), "error"); }
+  btn.disabled = false; btn.textContent = "Gönder";
+}
+
+async function isteklerimYukle() {
+  const c = $("#istek-liste");
+  setLoading(c);
+  const snap = await getDocs(query(kol("talepler"), where("ogretmenId", "==", profil.uid)));
+  const liste = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.tarih?.seconds || 0) - (a.tarih?.seconds || 0));
+  if (!liste.length) { emptyState(c, "Henüz istek göndermediniz", "📨"); return; }
+  c.innerHTML = "";
+  liste.forEach((t) => {
+    const silinebilir = t.durum === "yeni";
+    c.appendChild(el("div", { class: "liste-oge" },
+      el("div", { class: "liste-oge__ust" },
+        el("strong", {}, t.baslik),
+        el("span", { class: "liste-oge__tarih" }, formatDateTime(t.tarih))
+      ),
+      el("p", {}, t.icerik),
+      el("div", { class: "satir-arasi mt-1" },
+        el("span", { class: `rozet rozet--${ISTEK_ROZET[t.durum] || "uyari"}` }, ISTEK_METIN[t.durum] || t.durum),
+        t.oncelik ? el("span", { class: "rozet" }, "Öncelik: " + t.oncelik) : null,
+        t.sinifId ? el("span", { class: "rozet rozet--bilgi" }, "Sınıfımla ilgili") : null
+      ),
+      t.yanit ? el("div", { class: "rapor-kart__metin mt-1" }, el("strong", {}, "Yönetim yanıtı: "), document.createTextNode(t.yanit)) : null,
+      silinebilir ? el("div", { class: "satir-arasi mt-1" },
+        el("button", { class: "btn btn--danger btn--sm", onClick: () => istekSil(t.id) }, "Geri çek")) : null
+    ));
+  });
+}
+
+async function istekSil(id) {
+  if (!await confirmDialog("Bu istek geri çekilsin mi?")) return;
+  try {
+    await deleteDoc(bel("talepler", id));
+    toast("Geri çekildi.", "success");
+    isteklerimYukle();
+  } catch (err) { toast(firebaseHata(err), "error"); }
 }
 
 // =============================================================
@@ -435,6 +691,3 @@ $("#mesaj-yaz").addEventListener("submit", async (e) => {
     });
   } catch (err) { toast(firebaseHata(err), "error"); inp.value = metin; }
 });
-
-// $$ kısayolu (utils'te var ama burada da lazım)
-function $$(sel) { return Array.from(document.querySelectorAll(sel)); }

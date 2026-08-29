@@ -28,7 +28,9 @@
       <a href="#" data-gorunum="ogrenciler"><span class="i">🧒</span> Öğrenciler</a>
       <a href="#" data-gorunum="duyurular"><span class="i">📢</span> Duyurular</a>
       <a href="#" data-gorunum="galeri"><span class="i">📷</span> Galeri</a>
-      <a href="#" data-gorunum="odemeler"><span class="i">💳</span> Ödemeler</a>
+      <a href="#" data-gorunum="odemeler"><span class="i">💳</span> Aidat / Ödeme</a>
+      <a href="#" data-gorunum="talepler"><span class="i">📨</span> Talepler</a>
+      <a href="#" data-gorunum="izinler"><span class="i">📝</span> İzin / Belge</a>
       <a href="#" data-gorunum="ayarlar"><span class="i">⚙️</span> Ayarlar</a>
       <div class="yan-menu__alt">
         <a href="#" id="cikisBtn"><span class="i">🚪</span> Çıkış Yap</a>
@@ -152,17 +154,50 @@
             </form>
           </div>
           <div class="kutu">
-            <div class="kutu__ust"><h2>Tüm Fotoğraflar</h2></div>
+            <div class="kutu__ust">
+              <h2>Fotoğraflar</h2>
+              <div class="satir-arasi">
+                <label class="soluk" for="galeriTarih" style="font-weight:700">Tarih</label>
+                <input type="date" id="galeriTarih" />
+                <button type="button" class="btn btn--ghost btn--sm" id="galeriBugun">Bugün</button>
+              </div>
+            </div>
+            <p class="form-yardim" id="galeri-bilgi"></p>
             <div class="foto-izgara" id="foto-izgara"></div>
           </div>
         </section>
 
-        <!-- ÖDEMELER -->
+        <!-- AİDAT / ÖDEME -->
         <section class="gorunum" id="gorunum-odemeler">
           <div class="kutu">
-            <div class="kutu__ust">
-              <h2>Ödeme Kaydı Ekle</h2>
-            </div>
+            <div class="kutu__ust"><h2>Toplu Aidat Tahakkuku</h2></div>
+            <form id="tahakkukForm">
+              <div class="form-satir">
+                <div class="form-grup">
+                  <label for="tahakkukSinif">Sınıf</label>
+                  <select id="tahakkukSinif" name="sinifId"><option value="hepsi">Tüm sınıflar</option></select>
+                </div>
+                <div class="form-grup">
+                  <label for="tahakkukAy">Ay</label>
+                  <input type="month" id="tahakkukAy" name="ay" required />
+                </div>
+              </div>
+              <div class="form-satir">
+                <div class="form-grup">
+                  <label for="tahakkukTutar">Öğrenci başına tutar (₺)</label>
+                  <input type="number" id="tahakkukTutar" name="tutar" min="0" step="0.01" required />
+                </div>
+                <div class="form-grup">
+                  <label for="tahakkukAciklama">Açıklama (isteğe bağlı)</label>
+                  <input type="text" id="tahakkukAciklama" name="aciklama" placeholder="Örn: Nisan aidatı" />
+                </div>
+              </div>
+              <button type="submit" class="btn btn--primary" id="tahakkukBtn">Tahakkuku Oluştur</button>
+              <p class="form-yardim">Seçilen sınıftaki (velisi tanımlı) her öğrenci için "bekliyor" durumunda bir aidat kaydı açılır. Aynı ay için var olan kayıt atlanır.</p>
+            </form>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Tek Öğrenciye Kayıt</h2></div>
             <form id="odemeForm">
               <div class="form-satir">
                 <div class="form-grup">
@@ -191,8 +226,74 @@
             </form>
           </div>
           <div class="kutu">
-            <div class="kutu__ust"><h2>Ödeme Kayıtları</h2></div>
+            <div class="kutu__ust">
+              <h2>Aidat Kayıtları</h2>
+              <select id="odemeDurumFiltre" style="max-width:200px">
+                <option value="hepsi">Tümü</option>
+                <option value="bildirildi">Ödedim bildirenler</option>
+                <option value="bekliyor">Bekleyenler</option>
+                <option value="odendi">Ödenenler</option>
+              </select>
+            </div>
             <div class="tablo-sar"><table class="veri-tablo" id="odeme-tablo"></table></div>
+          </div>
+        </section>
+
+        <!-- TALEPLER (öğretmen istekleri) -->
+        <section class="gorunum" id="gorunum-talepler">
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>Öğretmen Talepleri</h2>
+              <select id="talepDurumFiltre" style="max-width:200px">
+                <option value="acik">Açık olanlar</option>
+                <option value="hepsi">Tümü</option>
+                <option value="yeni">Yeni</option>
+                <option value="inceleniyor">İnceleniyor</option>
+                <option value="tamamlandi">Tamamlandı</option>
+                <option value="reddedildi">Reddedildi</option>
+              </select>
+            </div>
+            <div id="talep-liste"></div>
+          </div>
+        </section>
+
+        <!-- İZİN / BELGE -->
+        <section class="gorunum" id="gorunum-izinler">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Yeni İzin / Belge</h2></div>
+            <form id="izinForm">
+              <div class="form-satir">
+                <div class="form-grup">
+                  <label for="izinTur">Tür</label>
+                  <select id="izinTur" name="tur">
+                    <option value="gezi">Gezi</option>
+                    <option value="izin">İzin talebi</option>
+                    <option value="belge">Bilgilendirme belgesi</option>
+                  </select>
+                </div>
+                <div class="form-grup">
+                  <label for="izinTarih">Etkinlik / geçerlilik tarihi</label>
+                  <input type="date" id="izinTarih" name="etkinlikTarihi" />
+                </div>
+              </div>
+              <div class="form-grup">
+                <label for="izinBaslik">Başlık</label>
+                <input type="text" id="izinBaslik" name="baslik" required />
+              </div>
+              <div class="form-grup">
+                <label for="izinMetin">Belge metni</label>
+                <textarea id="izinMetin" name="metin" required placeholder="Velilerin okuyup onaylayacağı açıklama..."></textarea>
+              </div>
+              <div class="form-grup">
+                <label>Hedef sınıflar</label>
+                <div class="checkbox-liste" id="izinSiniflar"></div>
+              </div>
+              <button type="submit" class="btn btn--primary" id="izinBtn">Gönder</button>
+            </form>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Gönderilen Belgeler</h2></div>
+            <div id="izin-liste"></div>
           </div>
         </section>
 

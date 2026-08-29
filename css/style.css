@@ -674,6 +674,8 @@ table.veri-tablo {
 }
 .veri-tablo tr:last-child td { border-bottom: none; }
 .veri-tablo tr:hover td { background: var(--yuzey-alt); }
+.veri-tablo tr.satir-vurgu td { background: #e5eff8; }
+.veri-tablo tr.satir-vurgu:hover td { background: #d8e7f4; }
 .tablo-islem { display: flex; gap: 6px; }
 
 /* ---------- Rozetler ---------- */
@@ -841,3 +843,167 @@ table.veri-tablo {
 .satir-arasi { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .buyu { flex: 1; }
 .soluk { color: var(--metin-soluk); font-size: 0.9rem; }
+
+/* =============================================================
+   SAĞLAYICI PANELİ — araç ızgarası + mobil kreş kartları
+   ============================================================= */
+.arac-izgara {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+.arac-izgara .btn { width: 100%; }
+
+/* Dar ekranda tabloyu karta dönüştür (kres-mobil / detay tabloları) */
+@media (max-width: 760px) {
+  table.veri-tablo.kres-mobil { min-width: 0; }
+  .kres-mobil thead { display: none; }
+  .kres-mobil tr {
+    display: block;
+    border: 1px solid var(--kenar);
+    border-radius: var(--yuvarlak);
+    margin: 10px;
+    padding: 6px 4px;
+    background: var(--yuzey);
+  }
+  .kres-mobil td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 14px;
+    border-bottom: 1px dashed var(--kenar);
+    padding: 9px 12px;
+    text-align: right;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .kres-mobil tr td:last-child { border-bottom: none; }
+  .kres-mobil td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-weight: 800;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--metin-soluk);
+    text-align: left;
+  }
+  .kres-mobil td.tablo-islem { flex-wrap: wrap; justify-content: flex-start; text-align: left; }
+  .kres-mobil td.tablo-islem::before { flex-basis: 100%; }
+  .kres-mobil td.tablo-islem .btn { flex: 0 1 auto; }
+}
+.tablo-islem { flex-wrap: wrap; }
+
+/* =============================================================
+   GÜNLÜK RAPOR — modern çip seçimi + önizleme kartı
+   ============================================================= */
+.rapor-ogrenci-gez { display: flex; align-items: center; gap: 8px; max-width: 420px; }
+.rapor-ogrenci-gez select { flex: 1; padding: 11px 14px; border: 2px solid var(--kenar); border-radius: var(--yuvarlak-sm); font: inherit; background: var(--yuzey); }
+.rapor-ogrenci-gez .btn { flex-shrink: 0; font-size: 1.1rem; line-height: 1; padding: 8px 14px; }
+
+.rapor-durum:empty { display: none; }
+
+.rapor-alan { margin-bottom: 16px; }
+.rapor-alan > label { display: block; font-weight: 800; font-size: 0.92rem; margin-bottom: 8px; }
+.rapor-select { display: none; }              /* asıl değer; görsel çipler taşır */
+.rapor-cipler { display: flex; flex-wrap: wrap; gap: 8px; }
+.rapor-cip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border: 2px solid var(--kenar);
+  border-radius: var(--yuvarlak-full);
+  background: var(--yuzey);
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--metin-soluk);
+  transition: border-color var(--gecis), background var(--gecis), color var(--gecis), transform var(--gecis);
+}
+.rapor-cip .e { font-size: 1.15rem; }
+.rapor-cip:hover { transform: translateY(-2px); }
+.rapor-cip.aktif {
+  background: var(--renk-birincil);
+  border-color: var(--renk-birincil);
+  color: #fff;
+}
+
+/* Veli-dostu rapor kartı */
+.rapor-kart {
+  border: 1px solid var(--kenar);
+  border-radius: var(--yuvarlak-lg);
+  padding: 18px;
+  background: linear-gradient(160deg, #fff, var(--yuzey-alt));
+}
+.rapor-kart__baslik { font-weight: 900; font-size: 1.05rem; margin-bottom: 12px; }
+.rapor-kart__izgara {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+.rapor-oge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  text-align: center;
+  padding: 14px 8px;
+  background: var(--yuzey);
+  border: 1px solid var(--kenar);
+  border-radius: var(--yuvarlak);
+}
+.rapor-oge__emoji { font-size: 1.8rem; line-height: 1; }
+.rapor-oge__etiket { font-size: 0.74rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; color: var(--metin-soluk); }
+.rapor-oge__deger { font-size: 0.88rem; font-weight: 700; }
+.rapor-kart__metin {
+  margin-top: 12px;
+  font-size: 0.92rem;
+  color: var(--metin);
+  background: var(--yuzey);
+  border: 1px dashed var(--kenar);
+  border-radius: var(--yuvarlak);
+  padding: 10px 12px;
+}
+
+/* =============================================================
+   ÖĞRETMEN — Sınıfım mini panosu
+   ============================================================= */
+.sinif-pano {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.pano-oge {
+  text-align: center;
+  padding: 14px 8px;
+  border-radius: var(--yuvarlak);
+  border: 1px solid var(--kenar);
+  background: var(--yuzey);
+}
+.pano-oge__sayi { font-size: 1.5rem; font-weight: 900; line-height: 1; }
+.pano-oge__etiket { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; color: var(--metin-soluk); margin-top: 4px; }
+.pano-oge--basari { background: #e3f5ec; border-color: #bfe6d0; }
+.pano-oge--uyari { background: #fdf1dd; border-color: #f0dcb4; }
+.pano-oge--hata { background: #fce8e4; border-color: #f2ccc2; }
+.pano-oge--bilgi { background: #e5eff8; border-color: #c6dcee; }
+
+/* =============================================================
+   MOBİL İNCE AYAR
+   ============================================================= */
+@media (max-width: 560px) {
+  .panel-ust { margin-bottom: 18px; }
+  .panel-ust h1 { font-size: 1.4rem; }
+  .kutu { padding: 16px; }
+  .kutu__ust h2, .kutu__ust h3 { font-size: 1.05rem; }
+  .stat-izgara { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .stat-kart { padding: 16px; gap: 12px; }
+  .stat-kart__ikon { width: 42px; height: 42px; font-size: 1.2rem; }
+  .stat-kart__sayi { font-size: 1.4rem; }
+  .ogrenci-izgara { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .yoklama-satir { flex-wrap: wrap; }
+  .yoklama-satir .isim { flex-basis: calc(100% - 46px); }
+  .rapor-cip { padding: 10px 13px; font-size: 0.9rem; }   /* dokunma hedefi */
+  .modal__body { padding: 18px; }
+  .modal__header { padding: 16px 18px; }
+}

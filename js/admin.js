@@ -9,7 +9,7 @@ import {
   sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  doc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp
+  collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db, firebaseConfig } from "./firebase-config.js";
 import { driveYukle } from "./drive-upload.js";
@@ -20,7 +20,7 @@ import {
 } from "./kres.js";
 import {
   $, el, escapeHtml, toast, emptyState, tabloBos, openModal, closeModal,
-  confirmDialog, formData, formatDateTime, formatAy, paraFormat,
+  confirmDialog, formData, formatDate, formatDateTime, formatAy, paraFormat,
   yasHesapla, isoDate, firebaseHata, kurPanelGezinme, kurCikis, kullaniciRozeti
 } from "./utils.js";
 
@@ -34,7 +34,9 @@ const durum = {
   ogrenciler: [],
   duyurular: [],
   odemeler: [],
-  fotograflar: []
+  fotograflar: [],
+  talepler: [],
+  izinBelgeleri: []
 };
 
 function yazmaKontrol() {
@@ -61,7 +63,9 @@ const nav = kurPanelGezinme({
   "ogrenciler": "Öğrenciler",
   "duyurular": "Duyurular",
   "galeri": "Galeri",
-  "odemeler": "Ödemeler",
+  "odemeler": "Aidat / Ödeme",
+  "talepler": "Talepler",
+  "izinler": "İzin / Belge",
   "ayarlar": "Ayarlar"
 }, (ad) => { if (ad === "ayarlar") ayarlariDoldur(); });
 
@@ -72,13 +76,15 @@ const nav = kurPanelGezinme({
 //  VERİ YÜKLEME
 // =============================================================
 async function hepsiniYukle() {
-  const [uSnap, sSnap, oSnap, dSnap, odSnap, fSnap] = await Promise.all([
+  const [uSnap, sSnap, oSnap, dSnap, odSnap, fSnap, tSnap, izSnap] = await Promise.all([
     getDocs(kol("users")),
     getDocs(kol("siniflar")),
     getDocs(kol("ogrenciler")),
     getDocs(kol("duyurular")),
     getDocs(kol("odemeler")),
-    getDocs(kol("fotograflar"))
+    getDocs(kol("fotograflar")),
+    getDocs(kol("talepler")),
+    getDocs(kol("izinBelgeleri"))
   ]);
   durum.kullanicilar = uSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
   durum.siniflar = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -88,6 +94,10 @@ async function hepsiniYukle() {
   durum.odemeler = odSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
     .sort((a, b) => (b.tarih?.seconds || 0) - (a.tarih?.seconds || 0));
   durum.fotograflar = fSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.tarih?.seconds || 0) - (a.tarih?.seconds || 0));
+  durum.talepler = tSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.tarih?.seconds || 0) - (a.tarih?.seconds || 0));
+  durum.izinBelgeleri = izSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
     .sort((a, b) => (b.tarih?.seconds || 0) - (a.tarih?.seconds || 0));
 }
 
@@ -118,7 +128,11 @@ function render() {
   renderFotoHedef();
   renderGaleri();
   renderOdemeSecicileri();
+  renderTahakkukSecicileri();
   renderOdemeler();
+  renderTalepler();
+  renderIzinSiniflar();
+  renderIzinler();
 }
 
 // ---------- Dashboard ----------
@@ -283,12 +297,34 @@ function renderFotoHedef() {
   if (secili) s.value = secili;
 }
 
+// Fotoğrafın Firestore Timestamp'ini "YYYY-MM-DD" anahtarına çevir
+function fotoGunu(f) {
+  const d = f.tarih?.toDate ? f.tarih.toDate() : (f.tarih ? new Date(f.tarih) : null);
+  return d ? isoDate(d) : "";
+}
+
+let galeriTarih = isoDate();
 function renderGaleri() {
   const c = $("#foto-izgara");
   if (!c) return;
-  if (!durum.fotograflar.length) { emptyState(c, "Henüz fotoğraf yok", "📷"); return; }
+  const tarihInput = $("#galeriTarih");
+  if (tarihInput && !tarihInput.value) tarihInput.value = galeriTarih;
+  const bilgi = $("#galeri-bilgi");
+  const bugun = isoDate();
+  const gununkiler = durum.fotograflar.filter((f) => fotoGunu(f) === galeriTarih);
+
+  if (bilgi) {
+    bilgi.textContent = galeriTarih === bugun
+      ? `Bugünün fotoğrafları (${gununkiler.length}). Başka bir günü görmek için tarih seçin.`
+      : `${formatDate(galeriTarih)} — ${gununkiler.length} fotoğraf.`;
+  }
+
+  if (!gununkiler.length) {
+    emptyState(c, galeriTarih === bugun ? "Bugün için fotoğraf yok" : `${formatDate(galeriTarih)} için fotoğraf yok`, "📷");
+    return;
+  }
   c.innerHTML = "";
-  durum.fotograflar.forEach((f) => {
+  gununkiler.forEach((f) => {
     const hedef = f.hedef === "okul" ? "Tüm Okul" : `${sinifAdi(f.hedef)} sınıfı`;
     c.appendChild(el("figure", { class: "foto-oge" },
       el("img", { src: f.url, alt: f.aciklama || "Fotoğraf", loading: "lazy" }),
@@ -348,7 +384,7 @@ async function fotoSil(f) {
   } catch (err) { toast(firebaseHata(err), "error"); }
 }
 
-// ---------- Ödemeler ----------
+// ---------- Aidat / Ödeme ----------
 function renderOdemeSecicileri() {
   const s = $("#odemeOgrenci");
   const secili = s.value;
@@ -358,25 +394,51 @@ function renderOdemeSecicileri() {
   if (!$("#odemeAy").value) $("#odemeAy").value = isoDate().slice(0, 7);
 }
 
+function renderTahakkukSecicileri() {
+  const s = $("#tahakkukSinif");
+  if (!s) return;
+  const secili = s.value;
+  s.innerHTML = `<option value="hepsi">Tüm sınıflar</option>` +
+    durum.siniflar.map((x) => `<option value="${x.id}">${escapeHtml(x.ad)}</option>`).join("");
+  if (secili) s.value = secili;
+  if (!$("#tahakkukAy").value) $("#tahakkukAy").value = isoDate().slice(0, 7);
+}
+
+const ODEME_ROZET = { odendi: "basari", bildirildi: "bilgi", bekliyor: "uyari" };
+const ODEME_METIN = { odendi: "Ödendi", bildirildi: "Ödedim bildirildi", bekliyor: "Bekliyor" };
+
+let odemeDurumFiltre = "hepsi";
 function renderOdemeler() {
   const tablo = $("#odeme-tablo");
-  if (!durum.odemeler.length) { tabloBos(tablo, "Ödeme kaydı yok"); return; }
+  let liste = [...durum.odemeler];
+  if (odemeDurumFiltre !== "hepsi") liste = liste.filter((o) => (o.durum || "bekliyor") === odemeDurumFiltre);
+  // "Ödedim bildirildi" en üste
+  liste.sort((a, b) => (b.durum === "bildirildi" ? 1 : 0) - (a.durum === "bildirildi" ? 1 : 0));
+  if (!liste.length) { tabloBos(tablo, "Kayıt yok"); return; }
   tablo.innerHTML = `
-    <thead><tr><th>Öğrenci</th><th>Veli</th><th>Ay</th><th>Tutar</th><th>Durum</th><th></th></tr></thead>
-    <tbody>${durum.odemeler.map((o) => `
-      <tr>
+    <thead><tr><th>Öğrenci</th><th>Veli</th><th>Ay</th><th>Tutar</th><th>Durum</th><th>Bildirim</th><th></th></tr></thead>
+    <tbody>${liste.map((o) => {
+      const d = o.durum || "bekliyor";
+      const bild = o.bildirim
+        ? `${escapeHtml(o.bildirim.yontem || "-")}${o.bildirim.not ? " · " + escapeHtml(o.bildirim.not) : ""}<br><span class="soluk">${escapeHtml(formatDateTime(o.bildirim.tarih))}</span>`
+        : "—";
+      return `<tr${d === "bildirildi" ? ' class="satir-vurgu"' : ""}>
         <td><strong>${escapeHtml(ogrenciAdi(o.ogrenciId))}</strong></td>
         <td>${escapeHtml(kullaniciAdi(o.veliId))}</td>
-        <td>${escapeHtml(formatAy(o.ay))}</td>
+        <td>${escapeHtml(formatAy(o.ay))}${o.aciklama ? `<br><span class="soluk">${escapeHtml(o.aciklama)}</span>` : ""}</td>
         <td>${paraFormat(o.tutar)}</td>
-        <td><span class="rozet rozet--${o.durum === "odendi" ? "basari" : "uyari"}">${o.durum === "odendi" ? "Ödendi" : "Bekliyor"}</span></td>
+        <td><span class="rozet rozet--${ODEME_ROZET[d] || "uyari"}">${ODEME_METIN[d] || d}</span></td>
+        <td class="soluk">${bild}</td>
         <td class="tablo-islem">
-          <button class="btn btn--ghost btn--sm" data-cevir="${o.id}">${o.durum === "odendi" ? "Bekliyor yap" : "Ödendi yap"}</button>
+          ${d !== "odendi" ? `<button class="btn btn--primary btn--sm" data-onayla="${o.id}">Ödendi onayla</button>` : `<button class="btn btn--ghost btn--sm" data-geri="${o.id}">Geri al</button>`}
           <button class="btn btn--danger btn--sm" data-sil="${o.id}">Sil</button>
         </td>
-      </tr>`).join("")}</tbody>`;
-  tablo.querySelectorAll("[data-cevir]").forEach((b) =>
-    b.addEventListener("click", () => odemeDurumCevir(b.dataset.cevir)));
+      </tr>`;
+    }).join("")}</tbody>`;
+  tablo.querySelectorAll("[data-onayla]").forEach((b) =>
+    b.addEventListener("click", () => odemeDurumAyarla(b.dataset.onayla, "odendi")));
+  tablo.querySelectorAll("[data-geri]").forEach((b) =>
+    b.addEventListener("click", () => odemeDurumAyarla(b.dataset.geri, "bekliyor")));
   tablo.querySelectorAll("[data-sil]").forEach((b) =>
     b.addEventListener("click", () => odemeSil(b.dataset.sil)));
 }
@@ -404,6 +466,31 @@ function gorselleriBagla() {
   $("#duyuruForm").addEventListener("submit", duyuruYayinla);
   $("#fotoForm").addEventListener("submit", fotoYukle);
   $("#odemeForm").addEventListener("submit", odemeEkle);
+  $("#tahakkukForm").addEventListener("submit", tahakkukYap);
+  $("#izinForm").addEventListener("submit", izinGonder);
+
+  // Galeri tarih filtresi
+  $("#galeriTarih").addEventListener("change", (e) => {
+    galeriTarih = e.target.value || isoDate();
+    renderGaleri();
+  });
+  $("#galeriBugun").addEventListener("click", () => {
+    galeriTarih = isoDate();
+    $("#galeriTarih").value = galeriTarih;
+    renderGaleri();
+  });
+
+  // Ödeme durum filtresi
+  $("#odemeDurumFiltre").addEventListener("change", (e) => {
+    odemeDurumFiltre = e.target.value;
+    renderOdemeler();
+  });
+
+  // Talep durum filtresi
+  $("#talepDurumFiltre").addEventListener("change", (e) => {
+    talepDurumFiltre = e.target.value;
+    renderTalepler();
+  });
 }
 
 // =============================================================
@@ -701,7 +788,7 @@ async function duyuruSil(id) {
 }
 
 // =============================================================
-//  ÖDEME
+//  AİDAT / ÖDEME
 // =============================================================
 async function odemeEkle(e) {
   e.preventDefault();
@@ -717,6 +804,7 @@ async function odemeEkle(e) {
       ogrenciId: ogr.id,
       ay: veri.ay,
       tutar: Number(veri.tutar) || 0,
+      aciklama: "",
       durum: veri.durum || "bekliyor",
       tarih: serverTimestamp()
     });
@@ -728,13 +816,54 @@ async function odemeEkle(e) {
   } catch (err) { toast(firebaseHata(err), "error"); }
 }
 
-async function odemeDurumCevir(id) {
-  const o = durum.odemeler.find((x) => x.id === id);
-  const yeni = o.durum === "odendi" ? "bekliyor" : "odendi";
+// Toplu tahakkuk: seçilen sınıftaki (velisi olan) her öğrenciye bir aidat kaydı
+async function tahakkukYap(e) {
+  e.preventDefault();
+  if (!yazmaKontrol()) return;
+  const v = formData(e.target);
+  const tutar = Number(v.tutar) || 0;
+  const ay = v.ay;
+  if (!ay || !tutar) { toast("Ay ve tutar girin.", "warning"); return; }
+  let hedefOgrenciler = durum.ogrenciler;
+  if (v.sinifId !== "hepsi") hedefOgrenciler = hedefOgrenciler.filter((o) => o.sinifId === v.sinifId);
+
+  const btn = $("#tahakkukBtn");
+  btn.disabled = true; btn.textContent = "Oluşturuluyor...";
+  let eklenen = 0, atlanan = 0, velisiz = 0;
   try {
-    await updateDoc(bel("odemeler", id), { durum: yeni });
-    o.durum = yeni;
+    for (const o of hedefOgrenciler) {
+      const veliId = (o.veliIds || [])[0] || null;
+      if (!veliId) { velisiz++; continue; }
+      const varMi = durum.odemeler.some((x) => x.ogrenciId === o.id && x.ay === ay);
+      if (varMi) { atlanan++; continue; }
+      await addDoc(kol("odemeler"), {
+        veliId, ogrenciId: o.id, ay, tutar,
+        aciklama: v.aciklama || "",
+        durum: "bekliyor",
+        tarih: serverTimestamp()
+      });
+      eklenen++;
+    }
+    await islemKaydet(profil.uid, "aidat-tahakkuk", { ay, tutar, eklenen, atlanan });
+    toast(`${eklenen} aidat kaydı oluşturuldu. ${atlanan} zaten vardı, ${velisiz} öğrencinin velisi yok.`, "success", 7000);
+    e.target.reset();
+    await hepsiniYukle();
+    renderTahakkukSecicileri();
     renderOdemeler();
+  } catch (err) { toast(firebaseHata(err), "error"); }
+  btn.disabled = false; btn.textContent = "Tahakkuku Oluştur";
+}
+
+async function odemeDurumAyarla(id, yeni) {
+  const o = durum.odemeler.find((x) => x.id === id);
+  try {
+    const guncelleme = { durum: yeni };
+    if (yeni === "odendi") guncelleme.onay = { tarih: serverTimestamp(), onaylayanId: profil.uid };
+    await updateDoc(bel("odemeler", id), guncelleme);
+    o.durum = yeni;
+    if (yeni === "odendi") o.onay = { tarih: new Date() };
+    renderOdemeler();
+    toast(yeni === "odendi" ? "Ödeme onaylandı." : "Geri alındı.", "success");
   } catch (err) { toast(firebaseHata(err), "error"); }
 }
 
@@ -747,6 +876,215 @@ async function odemeSil(id) {
     await hepsiniYukle();
     renderOdemeler();
   } catch (err) { toast(firebaseHata(err), "error"); }
+}
+
+// =============================================================
+//  TALEPLER (öğretmen -> yönetim)
+// =============================================================
+const TALEP_ROZET = { yeni: "uyari", inceleniyor: "bilgi", tamamlandi: "basari", reddedildi: "hata" };
+const TALEP_METIN = { yeni: "Yeni", inceleniyor: "İnceleniyor", tamamlandi: "Tamamlandı", reddedildi: "Reddedildi" };
+
+let talepDurumFiltre = "acik";
+function renderTalepler() {
+  const c = $("#talep-liste");
+  if (!c) return;
+  let liste = [...durum.talepler];
+  if (talepDurumFiltre === "acik") liste = liste.filter((t) => t.durum === "yeni" || t.durum === "inceleniyor");
+  else if (talepDurumFiltre !== "hepsi") liste = liste.filter((t) => t.durum === talepDurumFiltre);
+  if (!liste.length) { emptyState(c, "Talep yok", "📨"); return; }
+  c.innerHTML = "";
+  liste.forEach((t) => {
+    const oge = el("div", { class: "liste-oge" },
+      el("div", { class: "liste-oge__ust" },
+        el("strong", {}, t.baslik),
+        el("span", { class: "liste-oge__tarih" }, formatDateTime(t.tarih))
+      ),
+      el("p", {}, t.icerik),
+      el("div", { class: "satir-arasi mt-1" },
+        el("span", { class: `rozet rozet--${TALEP_ROZET[t.durum] || "uyari"}` }, TALEP_METIN[t.durum] || t.durum),
+        el("span", { class: "rozet" }, "Öğretmen: " + kullaniciAdi(t.ogretmenId)),
+        t.sinifId ? el("span", { class: "rozet rozet--bilgi" }, sinifAdi(t.sinifId)) : null,
+        t.oncelik ? el("span", { class: "rozet" }, "Öncelik: " + t.oncelik) : null
+      ),
+      t.yanit ? el("div", { class: "rapor-kart__metin mt-1" }, el("strong", {}, "Yanıt: "), document.createTextNode(t.yanit)) : null,
+      el("div", { class: "satir-arasi mt-1" },
+        el("button", { class: "btn btn--primary btn--sm", onClick: () => talepYanitla(t) }, "Yanıtla / Durum"),
+        el("button", { class: "btn btn--danger btn--sm", onClick: () => talepSil(t.id) }, "Sil")
+      )
+    );
+    c.appendChild(oge);
+  });
+}
+
+function talepYanitla(t) {
+  const form = el("form", {},
+    el("div", { class: "form-grup" }, el("label", {}, "Durum"),
+      el("select", { name: "durum" },
+        ...["yeni", "inceleniyor", "tamamlandi", "reddedildi"].map((d) =>
+          el("option", { value: d, ...(t.durum === d ? { selected: "" } : {}) }, TALEP_METIN[d])))),
+    el("div", { class: "form-grup" }, el("label", {}, "Yanıt (öğretmene görünür)"),
+      el("textarea", { name: "yanit" }, t.yanit || "")),
+    el("button", { class: "btn btn--primary btn--block mt-1", type: "submit" }, "Kaydet")
+  );
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!yazmaKontrol()) return;
+    const v = formData(form);
+    try {
+      await updateDoc(bel("talepler", t.id), {
+        durum: v.durum, yanit: v.yanit || "", guncelleme: serverTimestamp()
+      });
+      closeModal();
+      toast("Güncellendi.", "success");
+      await hepsiniYukle();
+      renderTalepler();
+    } catch (err) { toast(firebaseHata(err), "error"); }
+  });
+  openModal("Talep — " + escapeHtml(t.baslik), form);
+}
+
+async function talepSil(id) {
+  if (!await confirmDialog("Bu talep silinsin mi?")) return;
+  try {
+    await deleteDoc(bel("talepler", id));
+    toast("Silindi.", "success");
+    await hepsiniYukle();
+    renderTalepler();
+  } catch (err) { toast(firebaseHata(err), "error"); }
+}
+
+// =============================================================
+//  İZİN / BELGE (veli onayı)
+// =============================================================
+function renderIzinSiniflar() {
+  const c = $("#izinSiniflar");
+  if (!c) return;
+  c.innerHTML = "";
+  if (!durum.siniflar.length) { c.appendChild(el("p", { class: "form-yardim" }, "Önce sınıf oluşturun.")); return; }
+  durum.siniflar.forEach((s) => {
+    c.appendChild(el("label", {},
+      el("input", { type: "checkbox", name: "hedefSiniflar[]", value: s.id }),
+      `${s.ad}${s.yasGrubu ? " (" + s.yasGrubu + ")" : ""}`));
+  });
+}
+
+function izinYanitKol(belgeId) {
+  return collection(db, "kresler", aktifKresId(), "izinBelgeleri", belgeId, "yanitlar");
+}
+const izinYanitCache = {};   // belgeId -> [{veliUid, ogrenciId, karar, not, tarih}]
+async function izinYanitlariGetir(belgeId) {
+  const snap = await getDocs(izinYanitKol(belgeId));
+  izinYanitCache[belgeId] = snap.docs.map((d) => ({ veliUid: d.id, ...d.data() }));
+  return izinYanitCache[belgeId];
+}
+
+function renderIzinler() {
+  const c = $("#izin-liste");
+  if (!c) return;
+  if (!durum.izinBelgeleri.length) { emptyState(c, "Henüz belge yok", "📝"); return; }
+  c.innerHTML = "";
+  durum.izinBelgeleri.forEach((b) => {
+    const hedefAdlar = (b.hedefSiniflar || []).map((id) => sinifAdi(id)).join(", ") || "—";
+    // Bu belgenin ilgilendirdiği öğrenci sayısı (velisi olan)
+    const ilgiliOgr = durum.ogrenciler.filter((o) =>
+      (b.hedefSiniflar || []).includes(o.sinifId) && (o.veliIds || []).length);
+    const kutu = el("div", { class: "liste-oge" },
+      el("div", { class: "liste-oge__ust" },
+        el("strong", {}, `${turEtiket(b.tur)} · ${b.baslik}`),
+        el("span", { class: "liste-oge__tarih" }, formatDateTime(b.tarih))
+      ),
+      el("p", {}, b.metin),
+      el("div", { class: "satir-arasi mt-1" },
+        el("span", { class: "rozet rozet--bilgi" }, "Sınıf: " + hedefAdlar),
+        b.etkinlikTarihi ? el("span", { class: "rozet" }, "Tarih: " + formatDate(b.etkinlikTarihi)) : null,
+        el("span", { class: "rozet" }, `${ilgiliOgr.length} öğrenci`)
+      ),
+      el("div", { class: "satir-arasi mt-1", id: "izin-ozet-" + b.id },
+        el("button", { class: "btn btn--ghost btn--sm", onClick: () => izinDetayGoster(b, kutu) }, "Yanıtları gör"),
+        el("button", { class: "btn btn--danger btn--sm", onClick: () => izinSil(b.id) }, "Sil")
+      )
+    );
+    c.appendChild(kutu);
+  });
+}
+
+async function izinDetayGoster(b, kutu) {
+  const yanitlar = await izinYanitlariGetir(b.id);
+  const onay = yanitlar.filter((y) => y.karar === "onay").length;
+  const ret = yanitlar.filter((y) => y.karar === "ret").length;
+  const ilgiliOgr = durum.ogrenciler.filter((o) =>
+    (b.hedefSiniflar || []).includes(o.sinifId) && (o.veliIds || []).length);
+  const bekleyen = Math.max(0, ilgiliOgr.length - yanitlar.length);
+
+  const tablo = el("table", { class: "veri-tablo" });
+  tablo.innerHTML = `<thead><tr><th>Öğrenci</th><th>Veli</th><th>Karar</th><th>Not</th><th>Tarih</th></tr></thead>
+    <tbody>${ilgiliOgr.map((o) => {
+      const y = yanitlar.find((x) => x.ogrenciId === o.id);
+      const kararRozet = !y ? '<span class="rozet rozet--uyari">Bekliyor</span>'
+        : y.karar === "onay" ? '<span class="rozet rozet--basari">Onay</span>'
+        : '<span class="rozet rozet--hata">Ret</span>';
+      return `<tr>
+        <td>${escapeHtml(o.ad)} ${escapeHtml(o.soyad)}</td>
+        <td>${escapeHtml(kullaniciAdi((o.veliIds || [])[0]))}</td>
+        <td>${kararRozet}</td>
+        <td class="soluk">${escapeHtml(y?.not || "")}</td>
+        <td class="soluk">${y?.tarih ? escapeHtml(formatDateTime(y.tarih)) : "—"}</td>
+      </tr>`;
+    }).join("")}</tbody>`;
+
+  openModal(`Yanıtlar — ${escapeHtml(b.baslik)}`, el("div", {},
+    el("div", { class: "satir-arasi mb-1" },
+      el("span", { class: "rozet rozet--basari" }, `Onay: ${onay}`),
+      el("span", { class: "rozet rozet--hata" }, `Ret: ${ret}`),
+      el("span", { class: "rozet rozet--uyari" }, `Bekleyen: ${bekleyen}`)
+    ),
+    el("div", { class: "tablo-sar" }, tablo)
+  ), { genis: true });
+}
+
+async function izinGonder(e) {
+  e.preventDefault();
+  if (!yazmaKontrol()) return;
+  const v = formData(e.target);
+  const hedef = v["hedefSiniflar"] || [];
+  if (!hedef.length) { toast("En az bir sınıf seçin.", "warning"); return; }
+  const btn = $("#izinBtn");
+  btn.disabled = true; btn.textContent = "Gönderiliyor...";
+  try {
+    await addDoc(kol("izinBelgeleri"), {
+      tur: v.tur || "belge",
+      baslik: v.baslik,
+      metin: v.metin,
+      hedefSiniflar: hedef,
+      etkinlikTarihi: v.etkinlikTarihi || null,
+      olusturanId: profil.uid,
+      tarih: serverTimestamp()
+    });
+    await islemKaydet(profil.uid, "izin-belge-gonder", { baslik: v.baslik, tur: v.tur });
+    e.target.reset();
+    renderIzinSiniflar();
+    toast("Belge gönderildi. Veliler panellerinde görecek.", "success");
+    await hepsiniYukle();
+    renderIzinler();
+  } catch (err) { toast(firebaseHata(err), "error"); }
+  btn.disabled = false; btn.textContent = "Gönder";
+}
+
+async function izinSil(id) {
+  if (!await confirmDialog("Bu belge ve tüm yanıtları silinsin mi?")) return;
+  try {
+    // önce yanıtlar
+    const snap = await getDocs(izinYanitKol(id));
+    for (const d of snap.docs) await deleteDoc(d.ref);
+    await deleteDoc(bel("izinBelgeleri", id));
+    toast("Silindi.", "success");
+    await hepsiniYukle();
+    renderIzinler();
+  } catch (err) { toast(firebaseHata(err), "error"); }
+}
+
+function turEtiket(t) {
+  return t === "gezi" ? "🚌 Gezi" : t === "izin" ? "✋ İzin" : "📄 Belge";
 }
 
 // =============================================================
@@ -831,7 +1169,7 @@ async function ayarlariDoldur() {
 async function veriDisaAktar() {
   toast("Veri toplanıyor...", "info");
   const altlar = ["users", "siniflar", "ogrenciler", "yoklamalar", "gunlukRaporlar",
-    "duyurular", "mesajlar", "odemeler", "fotograflar", "islemKayitlari"];
+    "duyurular", "mesajlar", "odemeler", "fotograflar", "talepler", "izinBelgeleri", "islemKayitlari"];
   const cikti = { kres: aktifKres(), disaAktarma: new Date().toISOString() };
   try {
     for (const alt of altlar) {

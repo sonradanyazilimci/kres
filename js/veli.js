@@ -4,16 +4,18 @@
 // =============================================================
 
 import {
-  getDoc, getDocs, addDoc, setDoc, updateDoc,
+  collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc,
   query, where, onSnapshot, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 import { sayfaKorumasi, cikisYap } from "./auth.js";
-import { kol, bel, aktifKres, kilitEkraniGoster } from "./kres.js";
+import { db } from "./firebase-config.js";
+import { kol, bel, aktifKresId, aktifKres, kilitEkraniGoster } from "./kres.js";
 import {
   $, $$, el, escapeHtml, toast, setLoading, emptyState, tabloBos,
   formatDate, formatDateTime, isoDate, yasHesapla, basHarfler, paraFormat,
-  firebaseHata, kurPanelGezinme, kurCikis, kullaniciRozeti, openModal, closeModal
+  firebaseHata, kurPanelGezinme, kurCikis, kullaniciRozeti, openModal, closeModal,
+  raporKart, formData
 } from "./utils.js";
 
 // Var olmayan doküman okunurken güvenlik kuralları `permission-denied`
@@ -38,6 +40,7 @@ let ogretmenler = new Map();    // ogretmenId -> user
 let okunanDuyurular = new Set();
 let seciliMesajKisi = null;
 let mesajAboneligi = null;
+let galeriTarih = isoDate();
 
 // ---------- Başlangıç ----------
 baglam = await sayfaKorumasi("veli");
@@ -49,8 +52,12 @@ if (!baglam.aktif) kilitEkraniGoster(aktifKres());
 
 kurPanelGezinme({
   ozet: "Özet", raporlar: "Günlük Raporlar", yoklama: "Yoklama",
-  galeri: "Galeri", duyurular: "Duyurular", mesajlar: "Mesajlar", odemeler: "Ödemeler"
+  galeri: "Galeri", duyurular: "Duyurular", mesajlar: "Mesajlar",
+  odemeler: "Ödemeler", izinler: "İzin / Belgeler"
 }, gorunumDegisti);
+
+$("#galeriTarih").addEventListener("change", (e) => { galeriTarih = e.target.value || isoDate(); galeriYukle(); });
+$("#galeriBugun").addEventListener("click", () => { galeriTarih = isoDate(); $("#galeriTarih").value = galeriTarih; galeriYukle(); });
 
 // KVKK açık rıza kapısı — veli ilk girişte onaylamalı
 if (baglam.aktif) await rizaKapisi();
@@ -139,9 +146,8 @@ function gorunumDegisti(ad) {
   if (ad === "duyurular") duyurulariYukle();
   if (ad === "mesajlar") mesajlasmaKur();
   if (ad === "odemeler") odemelerYukle();
+  if (ad === "izinler") izinleriYukle();
 }
-
-const satir = (b, d) => el("div", { class: "rapor-satir" }, el("strong", {}, b), el("span", {}, d));
 
 // =============================================================
 //  ÖZET
@@ -173,14 +179,7 @@ async function ozetYukle() {
 function raporGoster(kap, v, bosMesaj) {
   kap.innerHTML = "";
   if (!v) { emptyState(kap, bosMesaj, "📝"); return; }
-  kap.append(
-    satir("Yemek", v.yemek || "—"),
-    satir("Uyku", v.uyku || "—"),
-    satir("Tuvalet", v.tuvalet || "—"),
-    satir("Ruh Hali", v.ruhHali || "—"),
-    satir("Etkinlik", v.etkinlik || "—"),
-    satir("Not", v.not || "—")
-  );
+  kap.appendChild(raporKart(v));
 }
 
 // =============================================================
@@ -220,16 +219,36 @@ async function yoklamaYukle() {
 // =============================================================
 //  GALERİ
 // =============================================================
+function fotoGunu(f) {
+  const d = f.tarih?.toDate ? f.tarih.toDate() : (f.tarih ? new Date(f.tarih) : null);
+  return d ? isoDate(d) : "";
+}
+
 async function galeriYukle() {
   const c = $("#foto-izgara");
+  const tarihInput = $("#galeriTarih");
+  if (tarihInput && !tarihInput.value) tarihInput.value = galeriTarih;
   setLoading(c);
   const sinifIds = new Set(cocuklar.map((x) => x.sinifId).filter(Boolean));
   // Tüm koleksiyonu çekip istemcide süz: çocuğun sınıfı + okul geneli.
   const snap = await getDocs(kol("fotograflar"));
-  const foto = snap.docs.map((d) => d.data())
-    .filter((f) => f.hedef === "okul" || sinifIds.has(f.hedef))
+  const hepsi = snap.docs.map((d) => d.data())
+    .filter((f) => f.hedef === "okul" || sinifIds.has(f.hedef));
+  const bugun = isoDate();
+  const foto = hepsi.filter((f) => fotoGunu(f) === galeriTarih)
     .sort((a, b) => (b.tarih?.seconds || 0) - (a.tarih?.seconds || 0));
-  if (!foto.length) { emptyState(c, "Henüz fotoğraf yok", "📷"); return; }
+
+  const bilgi = $("#galeri-bilgi");
+  if (bilgi) {
+    bilgi.textContent = galeriTarih === bugun
+      ? `Bugünün fotoğrafları (${foto.length}). Başka bir günü görmek için tarih seçin.`
+      : `${formatDate(galeriTarih)} — ${foto.length} fotoğraf.`;
+  }
+
+  if (!foto.length) {
+    emptyState(c, galeriTarih === bugun ? "Bugün için fotoğraf yok" : `${formatDate(galeriTarih)} için fotoğraf yok`, "📷");
+    return;
+  }
   c.innerHTML = "";
   foto.forEach((f) => {
     c.appendChild(el("figure", { class: "foto-oge" },
@@ -284,13 +303,16 @@ async function duyuruOkundu(id, oge) {
 }
 
 // =============================================================
-//  ÖDEMELER
+//  ÖDEMELER (aidat + "ödedim" bildirimi)
 // =============================================================
+const ODEME_ROZET = { odendi: "basari", bildirildi: "bilgi", bekliyor: "uyari" };
+const ODEME_METIN = { odendi: "Ödendi", bildirildi: "Bildirildi — onay bekleniyor", bekliyor: "Bekliyor" };
+
 async function odemelerYukle() {
   const tablo = $("#odeme-tablo");
   tabloBos(tablo, "Yükleniyor...");
   const snap = await getDocs(query(kol("odemeler"), where("veliId", "==", profil.uid)));
-  const liste = snap.docs.map((d) => d.data())
+  const liste = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
     .sort((a, b) => (b.ay || "").localeCompare(a.ay || ""));
   if (!liste.length) { tabloBos(tablo, "Ödeme kaydı yok"); return; }
   const cocukAdi = (id) => {
@@ -298,20 +320,140 @@ async function odemelerYukle() {
     return c ? `${c.ad} ${c.soyad}` : "—";
   };
   tablo.innerHTML = `
-    <thead><tr><th>Çocuk</th><th>Ay</th><th>Tutar</th><th>Durum</th></tr></thead>
-    <tbody>${liste.map((o) => `
-      <tr>
+    <thead><tr><th>Çocuk</th><th>Ay</th><th>Tutar</th><th>Durum</th><th></th></tr></thead>
+    <tbody>${liste.map((o) => {
+      const d = o.durum || "bekliyor";
+      return `<tr>
         <td>${escapeHtml(cocukAdi(o.ogrenciId))}</td>
-        <td>${ayGoster(o.ay)}</td>
+        <td>${ayGoster(o.ay)}${o.aciklama ? `<br><span class="soluk">${escapeHtml(o.aciklama)}</span>` : ""}</td>
         <td>${paraFormat(o.tutar)}</td>
-        <td><span class="rozet rozet--${o.durum === "odendi" ? "basari" : "uyari"}">${o.durum === "odendi" ? "Ödendi" : "Bekliyor"}</span></td>
-      </tr>`).join("")}</tbody>`;
+        <td><span class="rozet rozet--${ODEME_ROZET[d] || "uyari"}">${ODEME_METIN[d] || d}</span></td>
+        <td class="tablo-islem">${d === "bekliyor" ? `<button class="btn btn--primary btn--sm" data-bildir="${o.id}">Ödedim, bildir</button>` : ""}</td>
+      </tr>`;
+    }).join("")}</tbody>`;
+  tablo.querySelectorAll("[data-bildir]").forEach((b) =>
+    b.addEventListener("click", () => odemeBildir(liste.find((x) => x.id === b.dataset.bildir))));
 }
+
+function odemeBildir(o) {
+  if (!yazma) { toast("Kreş aboneliği pasif.", "warning"); return; }
+  const form = el("form", {},
+    el("p", { class: "soluk mb-1" }, `${ayGoster(o.ay)} · ${paraFormat(o.tutar)} ödemesini yaptığınızı bildiriyorsunuz. Yönetici kontrol edip onaylayacak.`),
+    el("div", { class: "form-grup" }, el("label", {}, "Ödeme yöntemi"),
+      el("select", { name: "yontem" },
+        ...["Havale / EFT", "Kredi Kartı", "Nakit (elden)", "Diğer"].map((y) => el("option", { value: y }, y)))),
+    el("div", { class: "form-grup" }, el("label", {}, "Not (isteğe bağlı)"),
+      el("input", { name: "not", placeholder: "Örn: 12.04 tarihli havale" })),
+    el("button", { class: "btn btn--primary btn--block mt-1", type: "submit" }, "Bildir")
+  );
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const v = formData(form);
+    const btn = form.querySelector("button[type=submit]");
+    btn.disabled = true;
+    try {
+      await updateDoc(bel("odemeler", o.id), {
+        durum: "bildirildi",
+        bildirim: { tarih: serverTimestamp(), yontem: v.yontem || "Diğer", not: v.not || "" }
+      });
+      closeModal();
+      toast("Ödeme bildiriminiz iletildi.", "success");
+      odemelerYukle();
+    } catch (err) { toast(firebaseHata(err), "error"); btn.disabled = false; }
+  });
+  openModal("Ödeme Bildir", form);
+}
+
 function ayGoster(ay) {
   if (!ay || !ay.includes("-")) return ay || "—";
   const aylar = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
   const [y, m] = ay.split("-");
   return `${aylar[Number(m) - 1]} ${y}`;
+}
+
+// =============================================================
+//  İZİN / BELGELER (veli onayı)
+// =============================================================
+function izinYanitKol(belgeId) {
+  return collection(db, "kresler", aktifKresId(), "izinBelgeleri", belgeId, "yanitlar");
+}
+function turEtiket(t) {
+  return t === "gezi" ? "🚌 Gezi" : t === "izin" ? "✋ İzin" : "📄 Belge";
+}
+
+async function izinleriYukle() {
+  const c = $("#izin-liste");
+  setLoading(c);
+  const sinifIds = new Set(cocuklar.map((x) => x.sinifId).filter(Boolean));
+  const snap = await getDocs(kol("izinBelgeleri"));
+  const liste = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    .filter((b) => (b.hedefSiniflar || []).some((s) => sinifIds.has(s)))
+    .sort((a, b) => (b.tarih?.seconds || 0) - (a.tarih?.seconds || 0));
+  if (!liste.length) { emptyState(c, "Bekleyen belge yok", "📝"); return; }
+
+  // Bu velinin bu çocuk(lar) için verdiği yanıtları getir
+  c.innerHTML = "";
+  for (const b of liste) {
+    // ilgili çocuk (bu belgenin sınıfındaki)
+    const cocuk = cocuklar.find((x) => (b.hedefSiniflar || []).includes(x.sinifId));
+    let yanit = null;
+    try {
+      const ys = await getDoc(doc(izinYanitKol(b.id), profil.uid));
+      if (ys.exists()) yanit = ys.data();
+    } catch { /* yoksay */ }
+
+    const kutu = el("div", { class: `liste-oge ${yanit ? "" : "liste-oge--okunmadi"}` },
+      el("div", { class: "liste-oge__ust" },
+        el("strong", {}, `${turEtiket(b.tur)} · ${b.baslik}`),
+        el("span", { class: "liste-oge__tarih" }, formatDateTime(b.tarih))
+      ),
+      el("p", {}, b.metin),
+      b.etkinlikTarihi ? el("div", { class: "satir-arasi mt-1" },
+        el("span", { class: "rozet rozet--bilgi" }, "Tarih: " + formatDate(b.etkinlikTarihi))) : null,
+      yanit
+        ? el("div", { class: "satir-arasi mt-1" },
+            el("span", { class: `rozet rozet--${yanit.karar === "onay" ? "basari" : "hata"}` },
+              yanit.karar === "onay" ? "Onayladınız" : "Reddettiniz"),
+            yanit.not ? el("span", { class: "soluk" }, yanit.not) : null,
+            el("button", { class: "btn btn--ghost btn--sm", onClick: () => izinYanitla(b, cocuk) }, "Değiştir"))
+        : el("div", { class: "satir-arasi mt-1" },
+            el("button", { class: "btn btn--primary btn--sm", onClick: () => izinYanitla(b, cocuk, "onay") }, "Onayla"),
+            el("button", { class: "btn btn--danger btn--sm", onClick: () => izinYanitla(b, cocuk, "ret") }, "Reddet"))
+    );
+    c.appendChild(kutu);
+  }
+}
+
+function izinYanitla(belge, cocuk, onSecim = null) {
+  if (!yazma) { toast("Kreş aboneliği pasif.", "warning"); return; }
+  const form = el("form", {},
+    el("p", { class: "soluk mb-1" }, `"${belge.baslik}" belgesine yanıtınız${cocuk ? " (" + cocuk.ad + " " + cocuk.soyad + ")" : ""}.`),
+    el("div", { class: "form-grup" }, el("label", {}, "Karar"),
+      el("select", { name: "karar" },
+        el("option", { value: "onay", ...(onSecim === "onay" ? { selected: "" } : {}) }, "Onaylıyorum"),
+        el("option", { value: "ret", ...(onSecim === "ret" ? { selected: "" } : {}) }, "Reddediyorum"))),
+    el("div", { class: "form-grup" }, el("label", {}, "Not (isteğe bağlı)"),
+      el("input", { name: "not" })),
+    el("button", { class: "btn btn--primary btn--block mt-1", type: "submit" }, "Gönder")
+  );
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const v = formData(form);
+    const btn = form.querySelector("button[type=submit]");
+    btn.disabled = true;
+    try {
+      await setDoc(doc(izinYanitKol(belge.id), profil.uid), {
+        ogrenciId: cocuk?.id || null,
+        karar: v.karar,
+        not: v.not || "",
+        tarih: serverTimestamp()
+      });
+      closeModal();
+      toast("Yanıtınız kaydedildi.", "success");
+      izinleriYukle();
+    } catch (err) { toast(firebaseHata(err), "error"); btn.disabled = false; }
+  });
+  openModal("İzin / Belge Yanıtı", form);
 }
 
 // =============================================================
