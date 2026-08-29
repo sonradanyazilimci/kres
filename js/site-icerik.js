@@ -5,7 +5,7 @@
 //  Doküman yoksa/eksikse VARSAYILAN metinler kullanılır.
 // =============================================================
 
-import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "./firebase-config.js";
 
 // Alan tanımları: anahtar -> { etiket, cokSatir }
@@ -37,25 +37,25 @@ export const ALANLAR = [
 export const VARSAYILAN = {
   heroSlogan: "☁️ Bulut tabanlı kreş yazılımı",
   heroBaslik: "Kreşinizi tek panelden yönetin",
-  heroLead: "Yoklama, günlük gelişim raporu, veli iletişimi, fotoğraf galerisi ve aidat takibi — hepsi bir arada. Yönetici, öğretmen ve veliler için ayrı paneller. Kurulum yok, her cihazdan çalışır, KVKK uyumlu.",
+  heroLead: "Yoklama, günlük ve aylık gelişim raporu, veli iletişimi, fotoğraf galerisi, aidat & tahsilat takibi — hepsi bir arada. Yönetici, öğretmen ve veliler için ayrı paneller. Panel içi bildirimler, koyu tema, %100 mobil; kurulum yok, çevrimdışı açılır, KVKK uyumlu.",
   heroNot: "Kredi kartı gerekmez · Dakikalar içinde kurulum",
-  ozellik1Baslik: "Yoklama & Devamsızlık",
-  ozellik1Metin: "Öğretmen sınıf yoklamasını tek dokunuşla alır (geldi / geç / gelmedi). Veli geçmişi görür.",
-  ozellik2Baslik: "Günlük Gelişim Raporu",
-  ozellik2Metin: "Yemek, uyku, tuvalet, ruh hali, günün etkinliği ve serbest not — her gün veliye ulaşır.",
-  ozellik3Baslik: "Duyuru & Mesajlaşma",
-  ozellik3Metin: "Okul geneli veya sınıfa özel duyurular, okundu takibi ve öğretmen–veli birebir mesajlaşma.",
+  ozellik1Baslik: "Yoklama & Devamsızlık Bildirimi",
+  ozellik1Metin: "Öğretmen yoklamayı tek dokunuşla alır (geldi / geç / gelmedi), \"tümü geldi\" kısayoluyla saniyeler sürer. Veli, çocuğunu getiremeyeceği günü önceden bildirir; öğretmene anında düşer.",
+  ozellik2Baslik: "Günlük & Aylık Gelişim Raporu",
+  ozellik2Metin: "Yemek, uyku, tuvalet, ruh hali, etkinlik ve not; hazır kalıplar ve \"dünkü raporu kopyala\" ile hızlı. Tüm sınıfa toplu rapor girin. Veli, ay sonunda grafikli gelişim özetini görür.",
+  ozellik3Baslik: "Bildirim & İletişim Merkezi",
+  ozellik3Metin: "Okul geneli veya sınıfa özel duyurular, okundu takibi ve birebir mesajlaşma; panel içi bildirim zili her rolde. Önemli hatırlatmaları WhatsApp'tan tek tıkla gönderin.",
   ozellik4Baslik: "Fotoğraf Galerisi",
-  ozellik4Metin: "Sınıf fotoğrafları kendi Google Drive'ınıza yüklenir; depolama maliyeti size ait değil.",
-  ozellik5Baslik: "Aidat & Ödeme Takibi",
-  ozellik5Metin: "Öğrenci bazında aylık aidat kaydı, ödendi/bekliyor durumu; veli kendi ödeme geçmişini görür.",
-  ozellik6Baslik: "KVKK Uyumlu",
-  ozellik6Metin: "Açık rıza akışı, denetim günlüğü, tek tıkla veri dışa aktarma. Her kreşin verisi birbirinden yalıtık.",
+  ozellik4Metin: "Sınıf fotoğrafları kendi Google Drive'ınıza yüklenir; depolama maliyeti ve kota derdi yok. Veli galeriyi günlere göre gezer.",
+  ozellik5Baslik: "Aidat, Tahsilat & Makbuz",
+  ozellik5Metin: "Öğrenci bazında aylık aidat, toplu tahakkuk, tahsilat özeti ve borçlu listesi. Yazdırılabilir / PDF makbuz. Veli \"ödedim\" bildirir, yönetici onaylar.",
+  ozellik6Baslik: "İzin Onayı & KVKK",
+  ozellik6Metin: "İzin ve izin belgesi onayları veliye ulaşır; veli onayladıktan sonra değiştirilemez. Açık rıza akışı, denetim günlüğü, tek tıkla dışa aktarma; her kreşin verisi yalıtık.",
   fiyatNot: "Deneme süresi bittiğinde veriniz silinmez; abonelikle kaldığınız yerden devam edersiniz.",
-  iletisimEposta: "destek@kucukadimlar.app",
+  iletisimEposta: "destek@anaokul360.app",
   iletisimTelefon: "0850 000 00 00",
   iletisimSaat: "Hafta içi 09:00 – 18:00",
-  footerMetin: "Küçük Adımlar · Kreş & Anaokulu Yönetim Sistemi. Tüm hakları saklıdır."
+  footerMetin: "Anaokul 360 · Kreş & Anaokulu Yönetim Sistemi. Tüm hakları saklıdır."
 };
 
 const REF = () => doc(db, "site", "anasayfa");
@@ -68,6 +68,21 @@ export async function anasayfaOku() {
   } catch {
     return { ...VARSAYILAN };
   }
+}
+
+// Kayıtlı ham içeriği döndür (varsayılanlarla BİRLEŞTİRMEDEN).
+export async function anasayfaHam() {
+  try {
+    const s = await getDoc(REF());
+    return s.exists() ? s.data() : {};
+  } catch {
+    return {};
+  }
+}
+
+// Kayıtlı içeriği tamamen sil → sayfa dosyadaki VARSAYILAN metinlere döner.
+export async function anasayfaSil() {
+  await deleteDoc(REF());
 }
 
 // Sadece bilinen alanları, boş olmayanları yaz (merge).

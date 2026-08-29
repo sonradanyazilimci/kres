@@ -1,6 +1,6 @@
 /**
  * =============================================================
- *  Küçük Adımlar Kreş — Google Drive Fotoğraf Yükleme Servisi
+ *  Anaokul 360 — Google Drive Fotoğraf Yükleme Servisi
  * -------------------------------------------------------------
  *  Bu betik, kreşin Google hesabına (erhankenar4@gmail.com) ait
  *  Drive'a fotoğraf yükleyen küçük bir web servisidir. Uygulama
@@ -25,7 +25,7 @@
  * =============================================================
  */
 
-var KOK_KLASOR_ADI = "Küçük Adımlar Kreş Fotoğrafları";
+var KOK_KLASOR_ADI = "Anaokul 360 Fotoğrafları";
 var MAKS_BYTE = 12 * 1024 * 1024; // ~12 MB ham dosya sınırı
 
 function doGet() {

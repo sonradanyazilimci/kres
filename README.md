@@ -1,4 +1,4 @@
-# Küçük Adımlar — Çok-Kiracılı Kreş Yönetim SaaS'ı
+# Anaokul 360 — Çok-Kiracılı Kreş Yönetim SaaS'ı
 
 Firebase (Auth + Firestore) altyapılı, framework kullanmayan (saf HTML + CSS +
 Vanilla JS / ES6 modülleri) **çok-kiracılı** kreş yönetim uygulaması.
@@ -176,7 +176,7 @@ Cloud Functions/Scheduler yok. Seçenekler:
 | Rol | E-posta | Şifre |
 |---|---|---|
 | Sağlayıcı (süper-admin) | `erhankenar35@gmail.com` | `1122334455` → `yonetim.html` |
-| Demo kreş yöneticisi | `demo@kucukadimlarkres.com` | `Demo123456` |
+| Demo kreş yöneticisi | `demo@anaokul360.com` | `Demo123456` |
 | Demo öğretmen | `ogretmen1.*@ornek.com` | `ornek123` |
 | Demo veli | `veli1.*@ornek.com` | `ornek123` |
 

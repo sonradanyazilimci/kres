@@ -1,10 +1,10 @@
 /* =============================================================
- *  Küçük Adımlar Kreş — Service Worker (PWA)
+ *  Anaokul 360 — Service Worker (PWA)
  *  Uygulama kabuğunu önbelleğe alır; Firebase/Google isteklerine
  *  ve fotoğraf servisine (Apps Script) hiç karışmaz.
  * ============================================================= */
 
-const SURUM = "kres-v11";
+const SURUM = "kres-v14";
 const KABUK = [
   "./",
   "./index.html",
@@ -33,7 +33,7 @@ const KABUK = [
   "./js/drive-upload.js",
   "./js/pwa.js",
   "./manifest.webmanifest",
-  "./icons/icon.svg",
+  "./img/logo.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",

@@ -17,7 +17,7 @@ import {
 import { auth, db, firebaseConfig } from "./firebase-config.js";
 import { sayfaKorumasi, cikisYap } from "./auth.js";
 import { kresAktifMi, onayBekliyorMu, kalanGun } from "./kres.js";
-import { ALANLAR, anasayfaOku, anasayfaYaz } from "./site-icerik.js";
+import { ALANLAR, VARSAYILAN, anasayfaHam, anasayfaYaz, anasayfaSil } from "./site-icerik.js";
 import {
   sistemDuyurulariniGoster, sistemDuyurulariOku,
   sistemDuyuruEkle, sistemDuyuruGuncelle, sistemDuyuruSil
@@ -606,18 +606,19 @@ function odemelerModal() {
 //  ANASAYFA İÇERİĞİ
 // =============================================================
 async function anasayfaModal() {
-  const v = await anasayfaOku();
+  const kayitli = await anasayfaHam();
   const form = el("form", { class: "anasayfa-form" },
-    el("p", { class: "soluk mb-1" }, "Bu metinler index.html anasayfasında görünür. Boş bırakılan alanlar varsayılana döner."),
+    el("p", { class: "soluk mb-1" }, "Bu metinler index.html anasayfasında görünür. Alanı boş bırakırsanız uygulamanın güncel varsayılan metni (aşağıda gri renkte) kullanılır."),
     ...ALANLAR.map(({ k, e, cok }) =>
       el("div", { class: "form-grup" },
         el("label", {}, e),
         cok
-          ? el("textarea", { name: k, rows: "2" }, v[k] || "")
-          : el("input", { name: k, value: v[k] || "" })
+          ? el("textarea", { name: k, rows: "2", placeholder: VARSAYILAN[k] || "" }, kayitli[k] || "")
+          : el("input", { name: k, value: kayitli[k] || "", placeholder: VARSAYILAN[k] || "" })
       )
     ),
-    el("button", { class: "btn btn--primary btn--block mt-1", type: "submit" }, "Kaydet")
+    el("button", { class: "btn btn--primary btn--block mt-1", type: "submit" }, "Kaydet"),
+    el("button", { class: "btn btn--ghost btn--block mt-1", type: "button", id: "anasayfaSifirla" }, "Varsayılana dön (güncel metinler)")
   );
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -629,6 +630,16 @@ async function anasayfaModal() {
       toast("Anasayfa içeriği güncellendi.", "success");
     } catch (err) {
       toast(firebaseHata(err), "error"); btn.disabled = false; btn.textContent = "Kaydet";
+    }
+  });
+  form.querySelector("#anasayfaSifirla").addEventListener("click", async () => {
+    if (!await confirmDialog("Kaydedilmiş tüm anasayfa metinleri silinsin ve uygulamanın güncel varsayılan metinleri kullanılsın mı?", { onayMetni: "Varsayılana dön", tehlike: true })) return;
+    try {
+      await anasayfaSil();
+      closeModal();
+      toast("Anasayfa güncel varsayılan metinlere döndürüldü.", "success");
+    } catch (err) {
+      toast(firebaseHata(err), "error");
     }
   });
   openModal("Anasayfa İçeriği", form, { genis: true });

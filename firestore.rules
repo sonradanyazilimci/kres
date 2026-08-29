@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // =============================================================
-//  Kucuk Adimlar Kres — Cok-Kiracili Firestore Guvenlik Kurallari
+//  Anaokul 360 — Cok-Kiracili Firestore Guvenlik Kurallari
 //  /kullaniciDizini/{uid}   -> { kresId, rol }
 //  /kresler/{kresId}        -> ayarlar + abonelik
 //  /kresler/{kresId}/<alt>  -> kres verisi

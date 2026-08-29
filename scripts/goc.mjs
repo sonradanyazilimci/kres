@@ -44,7 +44,7 @@ async function main() {
   // 2) Demo kreş dokümanı (abonelikli — deneme süresi dolmasın)
   const kresRef = db.collection("kresler").doc();
   await kresRef.set({
-    ad: "Küçük Adımlar Kreş (Demo)",
+    ad: "Anaokul 360 (Demo)",
     telefon: "",
     sahibiUid: eskiAdmin ? eskiAdmin.id : (superUid || "bilinmiyor"),
     plan: "abonelik",

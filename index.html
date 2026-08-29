@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Küçük Adımlar — Kreş & Anaokulu Yönetim Sistemi</title>
-  <meta name="description" content="Kreşiniz için hepsi bir arada bulut yazılım: yoklama, günlük gelişim raporu, veli iletişimi, fotoğraf galerisi, aidat takibi. Rol bazlı paneller, KVKK uyumlu. 14 gün ücretsiz." />
+  <title>Anaokul 360 — Kreş & Anaokulu Yönetim Sistemi</title>
+  <meta name="description" content="Kreşiniz için hepsi bir arada bulut yazılım: yoklama & devamsızlık bildirimi, günlük ve aylık gelişim raporu, panel içi bildirimler, fotoğraf galerisi, aidat & tahsilat + PDF makbuz, yemek listesi ve haftalık program. Rol bazlı paneller, koyu tema, %100 mobil, KVKK uyumlu. 14 gün ücretsiz." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
-  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="icons/icon-192.png" type="image/png" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#ff8a5c" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="Kreş" />
+  <meta name="apple-mobile-web-app-title" content="Anaokul 360" />
 </head>
 <body>
 
@@ -24,8 +24,8 @@
   <header class="site-nav">
     <div class="container site-nav__inner">
       <a href="#" class="logo">
-        <span class="logo__mark">🧸</span>
-        <span>Küçük Adımlar</span>
+        <img class="logo__mark logo__mark--img" src="img/logo.png" alt="" width="40" height="40" />
+        <span>Anaokul 360</span>
       </a>
 
       <button class="site-nav__toggle" id="navToggle" aria-label="Menü">☰</button>
@@ -50,9 +50,10 @@
         <span class="hero__slogan" data-ic="heroSlogan">☁️ Bulut tabanlı kreş yazılımı</span>
         <h1 data-ic="heroBaslik">Kreşinizi tek panelden yönetin</h1>
         <p class="hero__lead" data-ic="heroLead">
-          Yoklama, günlük gelişim raporu, veli iletişimi, fotoğraf galerisi ve aidat
-          takibi — hepsi bir arada. Yönetici, öğretmen ve veliler için ayrı paneller.
-          Kurulum yok, her cihazdan çalışır, KVKK uyumlu.
+          Yoklama, günlük ve aylık gelişim raporu, veli iletişimi, fotoğraf galerisi,
+          aidat &amp; tahsilat takibi — hepsi bir arada. Yönetici, öğretmen ve veliler
+          için ayrı paneller. Panel içi bildirimler, koyu tema, %100 mobil; kurulum yok,
+          çevrimdışı açılır, KVKK uyumlu.
         </p>
         <div class="hero__actions">
           <a href="kayit.html" class="btn btn--primary">14 Gün Ücretsiz Dene</a>
@@ -60,7 +61,9 @@
         </div>
         <p class="soluk mt-1" style="font-size:.88rem" data-ic="heroNot">Kredi kartı gerekmez · Dakikalar içinde kurulum</p>
       </div>
-      <div class="hero__art" aria-hidden="true">🗂️</div>
+      <div class="hero__art hero__art--logo">
+        <img src="img/logo.png" alt="Anaokul 360 — Kreş ve Anaokulu Yönetim Sistemi logosu" />
+      </div>
     </section>
 
     <!-- ===================== ÖZELLİKLER ===================== -->
@@ -73,35 +76,90 @@
         <div class="kart-izgara">
           <article class="tanitim-kart tanitim-kart--vurgu">
             <div class="tanitim-kart__ikon">✅</div>
-            <h3 data-ic="ozellik1Baslik">Yoklama & Devamsızlık</h3>
-            <p data-ic="ozellik1Metin">Öğretmen sınıf yoklamasını tek dokunuşla alır (geldi / geç / gelmedi). Veli geçmişi görür.</p>
+            <h3 data-ic="ozellik1Baslik">Yoklama & Devamsızlık Bildirimi</h3>
+            <p data-ic="ozellik1Metin">Öğretmen yoklamayı tek dokunuşla alır (geldi / geç / gelmedi), "tümü geldi" kısayoluyla saniyeler sürer. Veli, çocuğunu getiremeyeceği günü önceden bildirir; öğretmene anında düşer.</p>
           </article>
           <article class="tanitim-kart tanitim-kart--vurgu">
             <div class="tanitim-kart__ikon">📝</div>
-            <h3 data-ic="ozellik2Baslik">Günlük Gelişim Raporu</h3>
-            <p data-ic="ozellik2Metin">Yemek, uyku, tuvalet, ruh hali, günün etkinliği ve serbest not — her gün veliye ulaşır.</p>
+            <h3 data-ic="ozellik2Baslik">Günlük & Aylık Gelişim Raporu</h3>
+            <p data-ic="ozellik2Metin">Yemek, uyku, tuvalet, ruh hali, etkinlik ve not; hazır kalıplar ve "dünkü raporu kopyala" ile hızlı. Tüm sınıfa toplu rapor girin. Veli, ay sonunda grafikli gelişim özetini görür.</p>
           </article>
           <article class="tanitim-kart tanitim-kart--vurgu">
-            <div class="tanitim-kart__ikon">📢</div>
-            <h3 data-ic="ozellik3Baslik">Duyuru & Mesajlaşma</h3>
-            <p data-ic="ozellik3Metin">Okul geneli veya sınıfa özel duyurular, okundu takibi ve öğretmen–veli birebir mesajlaşma.</p>
+            <div class="tanitim-kart__ikon">🔔</div>
+            <h3 data-ic="ozellik3Baslik">Bildirim & İletişim Merkezi</h3>
+            <p data-ic="ozellik3Metin">Okul geneli veya sınıfa özel duyurular, okundu takibi ve birebir mesajlaşma; panel içi bildirim zili her rolde. Önemli hatırlatmaları WhatsApp'tan tek tıkla gönderin.</p>
           </article>
           <article class="tanitim-kart tanitim-kart--vurgu">
             <div class="tanitim-kart__ikon">📷</div>
             <h3 data-ic="ozellik4Baslik">Fotoğraf Galerisi</h3>
-            <p data-ic="ozellik4Metin">Sınıf fotoğrafları kendi Google Drive'ınıza yüklenir; depolama maliyeti size ait değil.</p>
+            <p data-ic="ozellik4Metin">Sınıf fotoğrafları kendi Google Drive'ınıza yüklenir; depolama maliyeti ve kota derdi yok. Veli galeriyi günlere göre gezer.</p>
           </article>
           <article class="tanitim-kart tanitim-kart--vurgu">
             <div class="tanitim-kart__ikon">💳</div>
-            <h3 data-ic="ozellik5Baslik">Aidat & Ödeme Takibi</h3>
-            <p data-ic="ozellik5Metin">Öğrenci bazında aylık aidat kaydı, ödendi/bekliyor durumu; veli kendi ödeme geçmişini görür.</p>
+            <h3 data-ic="ozellik5Baslik">Aidat, Tahsilat & Makbuz</h3>
+            <p data-ic="ozellik5Metin">Öğrenci bazında aylık aidat, toplu tahakkuk, tahsilat özeti ve borçlu listesi. Yazdırılabilir / PDF makbuz. Veli "ödedim" bildirir, yönetici onaylar.</p>
           </article>
           <article class="tanitim-kart tanitim-kart--vurgu">
             <div class="tanitim-kart__ikon">🔐</div>
-            <h3 data-ic="ozellik6Baslik">KVKK Uyumlu</h3>
-            <p data-ic="ozellik6Metin">Açık rıza akışı, denetim günlüğü, tek tıkla veri dışa aktarma. Her kreşin verisi birbirinden yalıtık.</p>
+            <h3 data-ic="ozellik6Baslik">İzin Onayı & KVKK</h3>
+            <p data-ic="ozellik6Metin">İzin ve izin belgesi onayları veliye ulaşır; veli onayladıktan sonra değiştirilemez. Açık rıza akışı, denetim günlüğü, tek tıkla dışa aktarma; her kreşin verisi yalıtık.</p>
           </article>
         </div>
+      </div>
+    </section>
+
+    <!-- ===================== DAHASI ===================== -->
+    <section id="dahasi" class="container">
+      <div class="bolum-baslik">
+        <h2>Günlük işi kolaylaştıran ayrıntılar</h2>
+        <p>Küçük dokunuşlar zamanınızı geri kazandırır.</p>
+      </div>
+      <div class="kart-izgara">
+        <article class="tanitim-kart">
+          <div class="tanitim-kart__ikon">🍽️</div>
+          <h3>Haftalık Yemek Listesi</h3>
+          <p>Kahvaltı, öğle ve ikindi menüsünü haftalık girin; veli ve öğretmen kendi panelinden görür.</p>
+        </article>
+        <article class="tanitim-kart">
+          <div class="tanitim-kart__ikon">🗓️</div>
+          <h3>Haftalık Sınıf Programı</h3>
+          <p>Ders ve etkinlik çizelgesini sınıf bazında hazırlayın. Öğretmen düzenler, veli takip eder.</p>
+        </article>
+        <article class="tanitim-kart">
+          <div class="tanitim-kart__ikon">📓</div>
+          <h3>Gözlem Günlüğü</h3>
+          <p>Öğretmene özel notlar — çocuğun gelişimini kayıt altına alın. Veliye kapalıdır.</p>
+        </article>
+        <article class="tanitim-kart">
+          <div class="tanitim-kart__ikon">🎓</div>
+          <h3>Yıl Sonu Araçları</h3>
+          <p>Sınıfları tek adımda bir üst gruba terfi ettirin, tüm velilere toplu kapanış mesajı gönderin.</p>
+        </article>
+        <article class="tanitim-kart">
+          <div class="tanitim-kart__ikon">📨</div>
+          <h3>Öğretmen → Yönetim İstek Formu</h3>
+          <p>Malzeme, izin ve talepler panelden iletilir; yönetici durumu tek yerden yönetir.</p>
+        </article>
+        <article class="tanitim-kart">
+          <div class="tanitim-kart__ikon">🔎</div>
+          <h3>Hızlı Arama</h3>
+          <p>Yönetici öğrenci veya kullanıcıyı adıyla anında bulur, tek tıkla kaydına gider.</p>
+        </article>
+        <article class="tanitim-kart">
+          <div class="tanitim-kart__ikon">🌙</div>
+          <h3>Koyu Tema</h3>
+          <p>Her panelde açık/koyu tema; tercih cihazda hatırlanır.</p>
+        </article>
+        <article class="tanitim-kart">
+          <div class="tanitim-kart__ikon">📱</div>
+          <h3>%100 Mobil & PWA</h3>
+          <p>Telefon, tablet ve masaüstünde birebir çalışır. Uygulama gibi ana ekrana eklenir, çevrimdışı açılır.</p>
+        </article>
+        <article class="tanitim-kart">
+          <div class="tanitim-kart__ikon">📣</div>
+          <h3>Sistem Duyuruları</h3>
+          <p>Bakım, yeni özellik ve önemli bilgilendirmeler tüm panellerin üstünde görünür.</p>
+        </article>
       </div>
     </section>
 
@@ -115,17 +173,17 @@
         <article class="tanitim-kart sinif-kart">
           <span class="yas-rozet">Yönetici</span>
           <h3>Tüm okulu yönetir</h3>
-          <p>Öğretmen/veli hesapları, sınıflar, öğrenci kayıtları, duyurular, aidat, genel bakış panosu ve ayarlar.</p>
+          <p>Öğretmen/veli hesapları, sınıflar, öğrenci kayıtları, duyurular, aidat &amp; tahsilat ve PDF makbuz, yemek listesi ve haftalık program, yıl sonu terfi, hızlı arama, genel bakış panosu ve ayarlar.</p>
         </article>
         <article class="tanitim-kart sinif-kart">
           <span class="yas-rozet">Öğretmen</span>
           <h3>Sadece kendi sınıfı</h3>
-          <p>Yoklama, günlük rapor, sınıf fotoğrafı yükleme, sınıfa duyuru ve velilerle mesajlaşma.</p>
+          <p>Yoklama, günlük ve toplu rapor, gözlem günlüğü, sınıf fotoğrafı, sınıfa duyuru, haftalık program ve velilerle mesajlaşma; yönetime istek iletir.</p>
         </article>
         <article class="tanitim-kart sinif-kart">
           <span class="yas-rozet">Veli</span>
           <h3>Sadece kendi çocuğu</h3>
-          <p>Günlük raporlar, yoklama geçmişi, fotoğraf galerisi, duyurular, öğretmenle mesajlaşma ve aidat durumu.</p>
+          <p>Günlük raporlar ve aylık gelişim özeti, yoklama geçmişi, devamsızlık bildirimi, fotoğraf galerisi, duyurular, mesajlaşma, aidat durumu, yemek listesi ve izin onayları.</p>
         </article>
       </div>
     </section>
@@ -156,7 +214,7 @@
           <article class="tanitim-kart">
             <div class="tanitim-kart__ikon">4️⃣</div>
             <h3>Kullanmaya başlayın</h3>
-            <p>Öğretmenler yoklama ve rapor girer, veliler telefonundan takip eder. Uygulama gibi kurulabilir (PWA).</p>
+            <p>Öğretmenler yoklama ve rapor girer, veliler telefonundan takip eder; bildirimler panel içinde düşer. Uygulama gibi kurulabilir (PWA), koyu tema destekler.</p>
           </article>
         </div>
       </div>
@@ -191,7 +249,7 @@
           <h2>Sorularınız mı var?</h2>
           <p class="soluk">Demo talep edin, fiyat isteyin veya sisteme dair her şeyi sorun.</p>
           <ul class="iletisim__bilgi mt-1">
-            <li><span class="i">✉️</span> <span data-ic="iletisimEposta">destek@kucukadimlar.app</span></li>
+            <li><span class="i">✉️</span> <span data-ic="iletisimEposta">destek@anaokul360.app</span></li>
             <li><span class="i">📞</span> <span data-ic="iletisimTelefon">0850 000 00 00</span></li>
             <li><span class="i">🕗</span> <span data-ic="iletisimSaat">Hafta içi 09:00 – 18:00</span></li>
             <li><span class="i">🔐</span> <span>Verileriniz AB (eur3) bölgesinde, şifreli olarak saklanır</span></li>
@@ -222,8 +280,8 @@
     <div class="container">
       <div class="site-footer__grid">
         <div class="logo" style="color:#fff">
-          <span class="logo__mark">🧸</span>
-          <span>Küçük Adımlar</span>
+          <img class="logo__mark logo__mark--img" src="img/logo.png" alt="" width="40" height="40" />
+          <span>Anaokul 360</span>
         </div>
         <nav class="satir-arasi" style="gap:20px">
           <a href="#ozellikler">Özellikler</a>
@@ -236,7 +294,7 @@
         </nav>
       </div>
       <div class="site-footer__alt">
-        © <span id="yil"></span> <span data-ic="footerMetin">Küçük Adımlar · Kreş & Anaokulu Yönetim Sistemi. Tüm hakları saklıdır.</span>
+        © <span id="yil"></span> <span data-ic="footerMetin">Anaokul 360 · Kreş & Anaokulu Yönetim Sistemi. Tüm hakları saklıdır.</span>
       </div>
     </div>
   </footer>
@@ -249,7 +307,7 @@
         <button class="modal__close" id="girisModalKapat" aria-label="Kapat">✕</button>
       </div>
       <div class="modal__body">
-        <div class="giris-modal__logo">🧸</div>
+        <div class="giris-modal__logo"><img src="img/logo.png" alt="Anaokul 360" width="72" height="72" /></div>
         <p class="giris-modal__alt">Yönetici, öğretmen ve veli girişi</p>
         <form id="girisForm">
           <div class="form-grup">
