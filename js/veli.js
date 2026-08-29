@@ -212,8 +212,8 @@ async function yoklamaYukle() {
   tablo.innerHTML = `
     <thead><tr><th>Tarih</th><th>Durum</th></tr></thead>
     <tbody>${liste.map((y) => `
-      <tr><td>${formatDate(y.tarih)}</td>
-      <td><span class="rozet rozet--${rozet[y.durum] || "bilgi"}">${metin[y.durum] || y.durum}</span></td></tr>`).join("")}</tbody>`;
+      <tr><td data-label="Tarih">${formatDate(y.tarih)}</td>
+      <td data-label="Durum"><span class="rozet rozet--${rozet[y.durum] || "bilgi"}">${metin[y.durum] || y.durum}</span></td></tr>`).join("")}</tbody>`;
 }
 
 // =============================================================
@@ -324,10 +324,10 @@ async function odemelerYukle() {
     <tbody>${liste.map((o) => {
       const d = o.durum || "bekliyor";
       return `<tr>
-        <td>${escapeHtml(cocukAdi(o.ogrenciId))}</td>
-        <td>${ayGoster(o.ay)}${o.aciklama ? `<br><span class="soluk">${escapeHtml(o.aciklama)}</span>` : ""}</td>
-        <td>${paraFormat(o.tutar)}</td>
-        <td><span class="rozet rozet--${ODEME_ROZET[d] || "uyari"}">${ODEME_METIN[d] || d}</span></td>
+        <td data-label="Çocuk">${escapeHtml(cocukAdi(o.ogrenciId))}</td>
+        <td data-label="Ay">${ayGoster(o.ay)}${o.aciklama ? `<br><span class="soluk">${escapeHtml(o.aciklama)}</span>` : ""}</td>
+        <td data-label="Tutar">${paraFormat(o.tutar)}</td>
+        <td data-label="Durum"><span class="rozet rozet--${ODEME_ROZET[d] || "uyari"}">${ODEME_METIN[d] || d}</span></td>
         <td class="tablo-islem">${d === "bekliyor" ? `<button class="btn btn--primary btn--sm" data-bildir="${o.id}">Ödedim, bildir</button>` : ""}</td>
       </tr>`;
     }).join("")}</tbody>`;

@@ -235,7 +235,7 @@ async function kresDetay(kid) {
     el("div", { class: "satir-arasi mt-1" },
       el("button", { class: "btn btn--primary btn--sm", onClick: () => kullaniciEkleFormu(kid) }, "+ Kullanıcı Ekle")),
     el("div", { class: "tablo-sar mt-1" },
-      el("table", { class: "veri-tablo", id: "detay-kull-tablo" })),
+      el("table", { class: "veri-tablo tablo-kart", id: "detay-kull-tablo" })),
     el("div", { class: "kutu__ust mt-2", style: "margin-bottom:8px" },
       el("h3", {}, "Abonelik Ödemeleri"),
       el("button", { class: "btn btn--primary btn--sm", onClick: () => odemeEkleModal(kid) }, "＋ Ödeme")),
@@ -267,9 +267,9 @@ async function kresDetay(kid) {
   tb.innerHTML = `<thead><tr><th>Ad</th><th>E-posta</th><th>Rol</th><th></th></tr></thead>
     <tbody>${kullList.sort((a, b) => (a.rol || "").localeCompare(b.rol || "")).map((u) => `
       <tr>
-        <td>${escapeHtml((u.ad || "") + " " + (u.soyad || ""))}</td>
-        <td class="soluk">${escapeHtml(u.email || "-")}</td>
-        <td><span class="rozet rozet--${rozet[u.rol] || "bilgi"}">${escapeHtml(u.rol || "?")}</span></td>
+        <td data-label="Ad">${escapeHtml((u.ad || "") + " " + (u.soyad || ""))}</td>
+        <td data-label="E-posta" class="soluk">${escapeHtml(u.email || "-")}</td>
+        <td data-label="Rol"><span class="rozet rozet--${rozet[u.rol] || "bilgi"}">${escapeHtml(u.rol || "?")}</span></td>
         <td class="tablo-islem">
           <button class="btn btn--ghost btn--sm" data-sifre="${u.uid}" ${u.email ? "" : "disabled"}>Şifre sıfırla</button>
           <button class="btn btn--danger btn--sm" data-kull-sil="${u.uid}">Sil</button>

@@ -548,7 +548,7 @@ section { padding: 72px 0; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 .avatar--lg { width: 64px; height: 64px; font-size: 1.2rem; }
 
-/* Mobil: yan menü -> alt menü */
+/* Mobil: yan menü -> alt (kaydırılabilir) sekme çubuğu */
 .mobil-ust { display: none; }
 @media (max-width: 820px) {
   .panel { grid-template-columns: 1fr; }
@@ -557,18 +557,45 @@ section { padding: 72px 0; }
     inset: auto 0 0 0;
     height: auto;
     flex-direction: row;
-    justify-content: space-around;
+    justify-content: flex-start;
+    align-items: stretch;
     border-right: none;
     border-top: 1px solid var(--kenar);
-    padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
     z-index: 40;
     gap: 2px;
     overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
   }
+  .yan-menu::-webkit-scrollbar { display: none; }
   .yan-menu__logo, .yan-menu__alt { display: none; }
-  .yan-menu a { flex: 1 0 auto; flex-direction: column; gap: 3px; font-size: 0.68rem; padding: 6px 4px; text-align: center; min-width: 56px; }
-  .yan-menu a .i { font-size: 1.25rem; }
-  .panel-icerik { padding-bottom: calc(94px + env(safe-area-inset-bottom)); }
+  .yan-menu a {
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font-size: 0.62rem;
+    font-weight: 800;
+    line-height: 1.1;
+    padding: 7px 6px;
+    text-align: center;
+    width: 60px;
+    border-radius: 12px;
+    scroll-snap-align: center;
+  }
+  .yan-menu a span:not(.i) {
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .yan-menu a .i { font-size: 1.3rem; width: auto; }
+  .yan-menu a.aktif { box-shadow: var(--golge-sm); }
+  .panel .panel-icerik { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
   .mobil-ust {
     display: flex;
     align-items: center;
@@ -597,7 +624,9 @@ section { padding: 72px 0; }
   display: flex;
   align-items: center;
   gap: 16px;
+  min-width: 0;
 }
+.stat-kart > div { min-width: 0; }
 .stat-kart__ikon {
   width: 52px; height: 52px;
   border-radius: 16px;
@@ -606,7 +635,12 @@ section { padding: 72px 0; }
   background: var(--yuzey-alt);
   flex-shrink: 0;
 }
-.stat-kart__sayi { font-size: 1.8rem; font-weight: 900; line-height: 1; }
+.stat-kart__sayi {
+  font-size: clamp(1.1rem, 4.5vw, 1.8rem);
+  font-weight: 900;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
 .stat-kart__etiket { color: var(--metin-soluk); font-size: 0.85rem; font-weight: 700; }
 
 /* ---------- Bölüm kartı / panel ---------- */
@@ -854,19 +888,21 @@ table.veri-tablo {
 }
 .arac-izgara .btn { width: 100%; }
 
-/* Dar ekranda tabloyu karta dönüştür (kres-mobil / detay tabloları) */
+/* Dar ekranda tabloyu karta dönüştür (kres-mobil + tablo-kart işaretli tablolar) */
 @media (max-width: 760px) {
-  table.veri-tablo.kres-mobil { min-width: 0; }
-  .kres-mobil thead { display: none; }
-  .kres-mobil tr {
+  table.veri-tablo:is(.kres-mobil, .tablo-kart) { min-width: 0; }
+  :is(.kres-mobil, .tablo-kart) thead { display: none; }
+  :is(.kres-mobil, .tablo-kart) tbody { display: block; }
+  :is(.kres-mobil, .tablo-kart) tr {
     display: block;
     border: 1px solid var(--kenar);
     border-radius: var(--yuvarlak);
-    margin: 10px;
-    padding: 6px 4px;
+    margin: 10px 0;
+    padding: 4px;
     background: var(--yuzey);
   }
-  .kres-mobil td {
+  :is(.kres-mobil, .tablo-kart) tr:hover td { background: transparent; }
+  :is(.kres-mobil, .tablo-kart) td {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
@@ -877,20 +913,29 @@ table.veri-tablo {
     overflow-wrap: anywhere;
     word-break: break-word;
   }
-  .kres-mobil tr td:last-child { border-bottom: none; }
-  .kres-mobil td::before {
+  :is(.kres-mobil, .tablo-kart) tr td:last-child { border-bottom: none; }
+  :is(.kres-mobil, .tablo-kart) td::before {
     content: attr(data-label);
     flex: 0 0 auto;
     font-weight: 800;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     text-transform: uppercase;
     letter-spacing: 0.02em;
     color: var(--metin-soluk);
     text-align: left;
   }
-  .kres-mobil td.tablo-islem { flex-wrap: wrap; justify-content: flex-start; text-align: left; }
-  .kres-mobil td.tablo-islem::before { flex-basis: 100%; }
-  .kres-mobil td.tablo-islem .btn { flex: 0 1 auto; }
+  :is(.kres-mobil, .tablo-kart) td:empty { display: none; }
+  :is(.kres-mobil, .tablo-kart) td.tablo-islem {
+    flex-wrap: wrap; justify-content: flex-start; text-align: left;
+    padding-top: 12px;
+  }
+  :is(.kres-mobil, .tablo-kart) td.tablo-islem::before {
+    content: attr(data-label);
+    flex-basis: 100%;
+  }
+  :is(.kres-mobil, .tablo-kart) td.tablo-islem:not([data-label])::before,
+  :is(.kres-mobil, .tablo-kart) td.tablo-islem[data-label=""]::before { display: none; }
+  :is(.kres-mobil, .tablo-kart) td.tablo-islem .btn { flex: 0 1 auto; }
 }
 .tablo-islem { flex-wrap: wrap; }
 
@@ -992,18 +1037,33 @@ table.veri-tablo {
    MOBİL İNCE AYAR
    ============================================================= */
 @media (max-width: 560px) {
-  .panel-ust { margin-bottom: 18px; }
+  .panel-ust { margin-bottom: 18px; gap: 10px; }
   .panel-ust h1 { font-size: 1.4rem; }
+  .panel-ust .kullanici-rozet { max-width: 100%; overflow: hidden; }
+  .panel-ust .kullanici-rozet > span:not(.avatar) {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
   .kutu { padding: 16px; }
+  .kutu__ust { gap: 10px; }
   .kutu__ust h2, .kutu__ust h3 { font-size: 1.05rem; }
-  .stat-izgara { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
-  .stat-kart { padding: 16px; gap: 12px; }
-  .stat-kart__ikon { width: 42px; height: 42px; font-size: 1.2rem; }
-  .stat-kart__sayi { font-size: 1.4rem; }
+  .kutu__ust > select, .kutu__ust > .satir-arasi { flex: 1 1 100%; }
+  .kutu__ust > select { max-width: none !important; }
+  .stat-izgara { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
+  .stat-kart { padding: 14px; gap: 10px; }
+  .stat-kart__ikon { width: 40px; height: 40px; font-size: 1.15rem; }
+  .arac-izgara { grid-template-columns: 1fr; }
   .ogrenci-izgara { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .foto-izgara { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
   .yoklama-satir { flex-wrap: wrap; }
   .yoklama-satir .isim { flex-basis: calc(100% - 46px); }
+  .yoklama-secim { width: 100%; }
   .rapor-cip { padding: 10px 13px; font-size: 0.9rem; }   /* dokunma hedefi */
+  .rapor-kart__izgara { grid-template-columns: repeat(2, 1fr); }
+  .sinif-pano { grid-template-columns: repeat(3, 1fr); }
+  .modal-overlay { padding: 12px; }
   .modal__body { padding: 18px; }
   .modal__header { padding: 16px 18px; }
+  .liste-oge__ust { flex-direction: column; gap: 2px; }
+  .liste-oge__tarih { white-space: normal; }
+  .rapor-ogrenci-gez { max-width: none; }
 }

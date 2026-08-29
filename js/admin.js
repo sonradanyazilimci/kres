@@ -163,10 +163,10 @@ function renderDashboard() {
       const dolu = durum.ogrenciler.filter((o) => o.sinifId === s.id).length;
       const kap = s.kapasite || 0;
       return `<tr>
-        <td><strong>${escapeHtml(s.ad)}</strong></td>
-        <td>${escapeHtml(s.yasGrubu || "-")}</td>
-        <td>${escapeHtml(s.ogretmenId ? kullaniciAdi(s.ogretmenId) : "Atanmadı")}</td>
-        <td>${dolu} / ${kap} ${kap && dolu >= kap ? '<span class="rozet rozet--hata">Dolu</span>' : ""}</td>
+        <td data-label="Sınıf"><strong>${escapeHtml(s.ad)}</strong></td>
+        <td data-label="Yaş Grubu">${escapeHtml(s.yasGrubu || "-")}</td>
+        <td data-label="Öğretmen">${escapeHtml(s.ogretmenId ? kullaniciAdi(s.ogretmenId) : "Atanmadı")}</td>
+        <td data-label="Doluluk">${dolu} / ${kap} ${kap && dolu >= kap ? '<span class="rozet rozet--hata">Dolu</span>' : ""}</td>
       </tr>`;
     }).join("")}</tbody>`;
 }
@@ -183,11 +183,11 @@ function renderKullanicilar() {
     <thead><tr><th>Ad Soyad</th><th>E-posta</th><th>Telefon</th><th>Rol</th><th></th></tr></thead>
     <tbody>${liste.map((k) => `
       <tr>
-        <td><strong>${escapeHtml(k.ad || "")} ${escapeHtml(k.soyad || "")}</strong></td>
-        <td>${escapeHtml(k.email || "")}</td>
-        <td>${escapeHtml(k.telefon || "-")}</td>
-        <td><span class="rozet rozet--${rozet[k.rol] || "bilgi"}">${escapeHtml(k.rol)}</span></td>
-        <td class="tablo-islem">
+        <td data-label="Ad Soyad"><strong>${escapeHtml(k.ad || "")} ${escapeHtml(k.soyad || "")}</strong></td>
+        <td data-label="E-posta">${escapeHtml(k.email || "")}</td>
+        <td data-label="Telefon">${escapeHtml(k.telefon || "-")}</td>
+        <td data-label="Rol"><span class="rozet rozet--${rozet[k.rol] || "bilgi"}">${escapeHtml(k.rol)}</span></td>
+        <td data-label="" class="tablo-islem">
           <button class="btn btn--ghost btn--sm" data-duzenle="${k.id}">Düzenle</button>
           <button class="btn btn--danger btn--sm" data-sil="${k.id}">Sil</button>
         </td>
@@ -208,11 +208,11 @@ function renderSiniflar() {
     <tbody>${durum.siniflar.map((s) => {
       const dolu = durum.ogrenciler.filter((o) => o.sinifId === s.id).length;
       return `<tr>
-        <td><strong>${escapeHtml(s.ad)}</strong></td>
-        <td>${escapeHtml(s.yasGrubu || "-")}</td>
-        <td>${escapeHtml(s.ogretmenId ? kullaniciAdi(s.ogretmenId) : "Atanmadı")}</td>
-        <td>${s.kapasite || "-"}</td>
-        <td>${dolu}</td>
+        <td data-label="Ad"><strong>${escapeHtml(s.ad)}</strong></td>
+        <td data-label="Yaş Grubu">${escapeHtml(s.yasGrubu || "-")}</td>
+        <td data-label="Öğretmen">${escapeHtml(s.ogretmenId ? kullaniciAdi(s.ogretmenId) : "Atanmadı")}</td>
+        <td data-label="Kapasite">${s.kapasite || "-"}</td>
+        <td data-label="Kayıtlı">${dolu}</td>
         <td class="tablo-islem">
           <button class="btn btn--ghost btn--sm" data-duzenle="${s.id}">Düzenle</button>
           <button class="btn btn--danger btn--sm" data-sil="${s.id}">Sil</button>
@@ -244,11 +244,11 @@ function renderOgrenciler() {
     <thead><tr><th>Ad Soyad</th><th>Yaş</th><th>Sınıf</th><th>Veli(ler)</th><th>Alerji</th><th></th></tr></thead>
     <tbody>${liste.map((o) => `
       <tr>
-        <td><strong>${escapeHtml(o.ad)} ${escapeHtml(o.soyad)}</strong></td>
-        <td>${o.dogumTarihi ? yasHesapla(o.dogumTarihi) : "-"}</td>
-        <td>${escapeHtml(sinifAdi(o.sinifId))}</td>
-        <td>${(o.veliIds || []).map((v) => escapeHtml(kullaniciAdi(v))).join(", ") || "-"}</td>
-        <td>${o.alerjiler ? `<span class="rozet rozet--uyari">${escapeHtml(o.alerjiler)}</span>` : "-"}</td>
+        <td data-label="Ad Soyad"><strong>${escapeHtml(o.ad)} ${escapeHtml(o.soyad)}</strong></td>
+        <td data-label="Yaş">${o.dogumTarihi ? yasHesapla(o.dogumTarihi) : "-"}</td>
+        <td data-label="Sınıf">${escapeHtml(sinifAdi(o.sinifId))}</td>
+        <td data-label="Veli(ler)">${(o.veliIds || []).map((v) => escapeHtml(kullaniciAdi(v))).join(", ") || "-"}</td>
+        <td data-label="Alerji">${o.alerjiler ? `<span class="rozet rozet--uyari">${escapeHtml(o.alerjiler)}</span>` : "-"}</td>
         <td class="tablo-islem">
           <button class="btn btn--ghost btn--sm" data-duzenle="${o.id}">Düzenle</button>
           <button class="btn btn--danger btn--sm" data-sil="${o.id}">Sil</button>
@@ -423,12 +423,12 @@ function renderOdemeler() {
         ? `${escapeHtml(o.bildirim.yontem || "-")}${o.bildirim.not ? " · " + escapeHtml(o.bildirim.not) : ""}<br><span class="soluk">${escapeHtml(formatDateTime(o.bildirim.tarih))}</span>`
         : "—";
       return `<tr${d === "bildirildi" ? ' class="satir-vurgu"' : ""}>
-        <td><strong>${escapeHtml(ogrenciAdi(o.ogrenciId))}</strong></td>
-        <td>${escapeHtml(kullaniciAdi(o.veliId))}</td>
-        <td>${escapeHtml(formatAy(o.ay))}${o.aciklama ? `<br><span class="soluk">${escapeHtml(o.aciklama)}</span>` : ""}</td>
-        <td>${paraFormat(o.tutar)}</td>
-        <td><span class="rozet rozet--${ODEME_ROZET[d] || "uyari"}">${ODEME_METIN[d] || d}</span></td>
-        <td class="soluk">${bild}</td>
+        <td data-label="Öğrenci"><strong>${escapeHtml(ogrenciAdi(o.ogrenciId))}</strong></td>
+        <td data-label="Veli">${escapeHtml(kullaniciAdi(o.veliId))}</td>
+        <td data-label="Ay">${escapeHtml(formatAy(o.ay))}${o.aciklama ? `<br><span class="soluk">${escapeHtml(o.aciklama)}</span>` : ""}</td>
+        <td data-label="Tutar">${paraFormat(o.tutar)}</td>
+        <td data-label="Durum"><span class="rozet rozet--${ODEME_ROZET[d] || "uyari"}">${ODEME_METIN[d] || d}</span></td>
+        <td data-label="Bildirim" class="soluk">${bild}</td>
         <td class="tablo-islem">
           ${d !== "odendi" ? `<button class="btn btn--primary btn--sm" data-onayla="${o.id}">Ödendi onayla</button>` : `<button class="btn btn--ghost btn--sm" data-geri="${o.id}">Geri al</button>`}
           <button class="btn btn--danger btn--sm" data-sil="${o.id}">Sil</button>

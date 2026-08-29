@@ -241,9 +241,19 @@ export function kurPanelGezinme(basliklar = {}, onDegisim = () => {}) {
 
   function goster(ad) {
     $$(".gorunum").forEach((g) => g.classList.toggle("aktif", g.id === `gorunum-${ad}`));
-    linkler.forEach((l) => l.classList.toggle("aktif", l.dataset.gorunum === ad));
+    let aktifLink = null;
+    linkler.forEach((l) => {
+      const secili = l.dataset.gorunum === ad;
+      l.classList.toggle("aktif", secili);
+      if (secili) aktifLink = l;
+    });
     if (baslikEl && basliklar[ad]) baslikEl.textContent = basliklar[ad];
     window.scrollTo({ top: 0, behavior: "smooth" });
+    // Mobil alt sekme çubuğunda seçili sekmeyi görünür kıl
+    if (aktifLink) {
+      try { aktifLink.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" }); }
+      catch { /* eski tarayıcı */ }
+    }
     onDegisim(ad);
   }
 
