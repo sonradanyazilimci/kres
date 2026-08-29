@@ -29,7 +29,6 @@ Roller: **superadmin** (sağlayıcı = siz) · **admin** (kreş yöneticisi) ·
 | `scripts/goc.mjs` | Eski düz koleksiyonları çok-kiracılı yapıya taşıyan tek seferlik göç |
 | `scripts/yedekle.mjs` · `.github/workflows/yedek.yml` | Yedekleme (Spark planda çalışır) |
 | `google-apps-script/Kod.gs` | Her kreşin dağıttığı Drive yükleme servisi |
-| `google-apps-script/AuthAdmin.gs` | Vendor'ın dağıttığı Auth yönetim servisi (şifre belirleme, hesap silme) |
 | `manifest.webmanifest` · `sw.js` · `icons/` | PWA (telefona kurulabilir uygulama) |
 
 ---
@@ -93,27 +92,9 @@ Artık o hesap `yonetim.html`'e girer.
 - **+ Süper-admin** → başka bir UID'yi süper-admin yapar
 - Güvenlik kuralları: süper-admin **tüm sistemi okuyabilir** ve her koleksiyona yazabilir.
 
-**Doğrudan şifre belirleme + Auth hesabı silme** (`AuthAdmin.gs`)
-
-Firebase istemci SDK'sı başka kullanıcının şifresini değiştiremez / hesabını
-silemez. Bunun için vendor tarafında bir Apps Script servisi çalışır:
-
-1. `google-apps-script/AuthAdmin.gs`'i script.google.com'da yeni projeye yapıştır.
-2. Proje Ayarları → **Betik özellikleri**:
-   - `PROJE_ID` = `kres-245e9`
-   - `API_KEY` = `firebaseConfig.apiKey` değeri
-   - `SA_JSON` = **servis hesabı anahtarının tam JSON'u**
-     (Console → Proje Ayarları → Hizmet hesapları → "Yeni özel anahtar oluştur")
-3. **Dağıt → Web uygulaması** (Yürüten: Ben · Erişim: Herkes) → izinleri onayla.
-4. Çıkan `/exec` adresini `js/firebase-config.js` → `AUTH_ADMIN_URL` alanına yaz.
-
-> **Güvenlik:** Paylaşılan sır yoktur. İstek yalnızca geçerli bir Firebase
-> kimlik jetonuyla gelir ve jetonun sahibi `/superAdmins/{uid}` içinde olmak
-> zorundadır. Servis hesabı anahtarı yalnızca Apps Script sunucusunda tutulur.
-
-`AUTH_ADMIN_URL` **boşsa** panel otomatik olarak "şifre belirleme e-postası
-gönder" davranışına döner; Auth hesabı silme ise manuel kalır
-(**Authentication → Users**).
+> Auth hesabı **silme** hâlâ istemciden yapılamaz (Blaze/Admin SDK gerektirir).
+> Kullanıcı/kreş silindiğinde ilgili Firebase Authentication hesaplarını
+> **Authentication → Users** ekranından ayrıca kaldırın.
 
 ### 4. (İlk kez) Demo kreş / göç
 - **Yeni sistemde:** demo verisi tarayıcıdan süper-admin oturumuyla oluşturulur ya da

@@ -1,8 +1,7 @@
 // =============================================================
 //  Sağlayıcı (Süper-Admin) Paneli — yonetim.js
 //  Tüm kreşleri ve kullanıcıları yönetir: kreş + yönetici oluşturma,
-//  personel ekleme, ŞİFRE BELİRLEME + hesap silme (AuthAdmin.gs ile),
-//  abonelik ve kreş silme.
+//  personel ekleme/silme, şifre sıfırlama, abonelik, kreş silme.
 // =============================================================
 
 import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -15,7 +14,7 @@ import {
   serverTimestamp, Timestamp, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-import { auth, db, firebaseConfig, AUTH_ADMIN_URL } from "./firebase-config.js";
+import { auth, db, firebaseConfig } from "./firebase-config.js";
 import { sayfaKorumasi, cikisYap } from "./auth.js";
 import { kresAktifMi } from "./kres.js";
 import {
@@ -44,26 +43,6 @@ async function authHesabiOlustur(email, sifre) {
   }
 }
 const rastgeleSifre = () => "kres" + Math.random().toString(36).slice(2, 8) + Math.floor(Math.random() * 90 + 10);
-
-const authAdminHazir = () => AUTH_ADMIN_URL && !AUTH_ADMIN_URL.startsWith("BURAYA") && AUTH_ADMIN_URL.includes("/exec");
-
-// ---------- Vendor Auth yönetim servisi (AuthAdmin.gs) ----------
-async function authAdmin(islem, ekstra = {}) {
-  if (!authAdminHazir()) {
-    throw new Error("Auth yönetim servisi ayarlanmamış (firebase-config.js > AUTH_ADMIN_URL).");
-  }
-  const idToken = await auth.currentUser.getIdToken();
-  let yanit;
-  try {
-    yanit = await fetch(AUTH_ADMIN_URL, { method: "POST", body: JSON.stringify({ idToken, islem, ...ekstra }) });
-  } catch {
-    throw new Error("Auth servisine ulaşılamadı. Dağıtım erişimi 'Herkes' mi, adres /exec ile mi bitiyor?");
-  }
-  let j;
-  try { j = await yanit.json(); } catch { throw new Error("Servisten geçersiz yanıt."); }
-  if (!j.ok) throw new Error(j.hata || "İşlem başarısız.");
-  return j;
-}
 
 // =============================================================
 //  YÜKLEME
@@ -233,11 +212,11 @@ async function kresDetay(kid) {
         <td class="soluk">${escapeHtml(u.email || "-")}</td>
         <td><span class="rozet rozet--${rozet[u.rol] || "bilgi"}">${escapeHtml(u.rol || "?")}</span></td>
         <td class="tablo-islem">
-          <button class="btn btn--ghost btn--sm" data-sifre="${u.uid}" ${u.email ? "" : "disabled"}>Şifre belirle</button>
+          <button class="btn btn--ghost btn--sm" data-sifre="${u.uid}" ${u.email ? "" : "disabled"}>Şifre sıfırla</button>
           <button class="btn btn--danger btn--sm" data-kull-sil="${u.uid}">Sil</button>
         </td>
       </tr>`).join("")}</tbody>`;
-  tb.querySelectorAll("[data-sifre]").forEach((b) => b.addEventListener("click", () => sifreBelirleKull(b.dataset.sifre)));
+  tb.querySelectorAll("[data-sifre]").forEach((b) => b.addEventListener("click", () => sifreSifirlaKull(b.dataset.sifre)));
   tb.querySelectorAll("[data-kull-sil]").forEach((b) => b.addEventListener("click", () => kullaniciSil(kid, b.dataset.kullSil)));
 
   try {
@@ -289,60 +268,24 @@ function kullaniciEkleFormu(kid) {
   openModal("Kullanıcı Ekle", form);
 }
 
-async function sifreBelirleKull(uid) {
-  const email = emailByUid.get(uid) || "(e-posta yok)";
-
-  // AuthAdmin servisi yoksa: e-posta ile sıfırlamaya düş.
-  if (!authAdminHazir()) {
-    if (!await confirmDialog(
-      `Doğrudan şifre belirleme servisi ayarlanmamış (firebase-config.js > AUTH_ADMIN_URL).\n\n${email} adresine şifre BELİRLEME bağlantısı e-postası gönderilsin mi?`,
-      { onayMetni: "E-posta gönder", tehlike: false })) return;
-    try {
-      await sendPasswordResetEmail(auth, email);
-      toast("Şifre belirleme e-postası gönderildi.", "success");
-    } catch (err) { toast(firebaseHata(err), "error"); }
-    return;
-  }
-
-  const form = el("form", {},
-    el("p", { class: "soluk mb-1" }, `${email} için yeni şifre:`),
-    el("div", { class: "form-grup" },
-      el("input", { name: "sifre", type: "text", required: "", minlength: "6", value: rastgeleSifre() })),
-    el("button", { class: "btn btn--primary btn--block", type: "submit" }, "Şifreyi Belirle")
-  );
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn = form.querySelector("button[type=submit]");
-    btn.disabled = true; btn.textContent = "Uygulanıyor...";
-    const sifre = formData(form).sifre;
-    try {
-      await authAdmin("sifreBelirle", { uid, sifre });
-      closeModal();
-      toast(`Şifre belirlendi. ${email} · ${sifre}`, "success", 9000);
-    } catch (err) {
-      toast(err.message || firebaseHata(err), "error", 6000);
-      btn.disabled = false; btn.textContent = "Şifreyi Belirle";
-    }
-  });
-  openModal("Şifre Belirle", form);
+async function sifreSifirlaKull(uid) {
+  const email = emailByUid.get(uid);
+  if (!email) { toast("E-posta bilinmiyor.", "warning"); return; }
+  if (!await confirmDialog(`${email} adresine şifre belirleme e-postası gönderilsin mi?`, { onayMetni: "Gönder", tehlike: false })) return;
+  try {
+    await sendPasswordResetEmail(auth, email);
+    toast("Şifre sıfırlama e-postası gönderildi.", "success");
+  } catch (err) { toast(firebaseHata(err), "error"); }
 }
 
 async function kullaniciSil(kid, uid) {
   const email = emailByUid.get(uid) || uid;
-  const authVar = authAdminHazir();
-  const mesaj = authVar
-    ? `${email} kullanıcısı ve Firebase Authentication hesabı silinsin mi?`
-    : `${email} kullanıcısının kaydı silinsin mi? (Firebase Authentication hesabı konsoldan ayrıca silinmelidir.)`;
-  if (!await confirmDialog(mesaj)) return;
+  if (!await confirmDialog(`${email} kullanıcısının kaydı silinsin mi? (Firebase Authentication hesabı konsoldan ayrıca silinmelidir.)`)) return;
   try {
     await deleteDoc(doc(db, "kresler", kid, "users", uid));
     await deleteDoc(doc(db, "kullaniciDizini", uid));
-    if (authVar) {
-      try { await authAdmin("hesapSil", { uid }); }
-      catch (e) { toast("Firestore kaydı silindi; Auth hesabı silinemedi: " + e.message, "warning", 7000); }
-    }
     closeModal();
-    toast("Kullanıcı silindi.", "success");
+    toast("Kullanıcı kaydı silindi.", "success");
     yukle();
   } catch (err) { toast(firebaseHata(err), "error"); }
 }
@@ -410,20 +353,12 @@ async function kresSil(id) {
           await b.commit();
         }
       }
-      // dizin kayıtları + (varsa) Auth hesapları
+      // dizin kayıtları
       const dizinSil = kullanicilar.filter((u) => u.kresId === id);
-      let authHata = 0;
-      for (const u of dizinSil) {
-        await deleteDoc(doc(db, "kullaniciDizini", u.uid));
-        if (authAdminHazir()) {
-          try { await authAdmin("hesapSil", { uid: u.uid }); } catch { authHata++; }
-        }
-      }
+      for (const u of dizinSil) await deleteDoc(doc(db, "kullaniciDizini", u.uid));
       await deleteDoc(doc(db, "kresler", id));
       closeModal();
-      toast(authAdminHazir()
-        ? `Kreş, tüm verisi ve ${dizinSil.length - authHata} Auth hesabı silindi.` + (authHata ? ` (${authHata} hesap silinemedi)` : "")
-        : "Kreş ve tüm verisi silindi. (Auth hesapları konsoldan temizlenmeli.)", "success", 9000);
+      toast("Kreş ve tüm verisi silindi. (Auth hesapları konsoldan temizlenmeli.)", "success", 8000);
       yukle();
     } catch (err) { toast(firebaseHata(err), "error"); btn.disabled = false; btn.textContent = "Kalıcı olarak sil"; }
   });
