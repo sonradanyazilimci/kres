@@ -31,6 +31,11 @@
       <a href="#" data-gorunum="odemeler"><span class="i">💳</span> Ödemeler</a>
       <a href="#" data-gorunum="program"><span class="i">🍽️</span> Yemek & Program</a>
       <a href="#" data-gorunum="izinler"><span class="i">📝</span> İzin / Belgeler</a>
+      <a href="#" data-gorunum="randevular"><span class="i">📅</span> Randevu</a>
+      <a href="#" data-gorunum="kurumzili"><span class="i">🔔</span> Kurum Zili</a>
+      <a href="#" data-gorunum="saglik"><span class="i">🩺</span> Sağlık & Gelişim</a>
+      <a href="#" data-gorunum="anketler"><span class="i">🗳️</span> Geri Bildirim</a>
+      <a href="#" data-gorunum="belgeler"><span class="i">📎</span> Belgelerim</a>
       <div class="yan-menu__alt">
         <a href="#" id="cikisBtn"><span class="i">🚪</span> Çıkış Yap</a>
       </div>
@@ -187,6 +192,83 @@
             <div class="kutu__ust"><h2>Gezi / İzin / Belgeler</h2></div>
             <p class="form-yardim">Okuldan gelen belgeleri okuyup onaylayın veya reddedin.</p>
             <div id="izin-liste"></div>
+          </div>
+        </section>
+
+        <!-- RANDEVU -->
+        <section class="gorunum" id="gorunum-randevular">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Randevu Oluştur</h2></div>
+            <p class="form-yardim">Çocuğunuzun öğretmeni veya yönetici ile görüşme randevusu isteyin.</p>
+            <form id="randevuForm">
+              <div class="form-grup">
+                <label for="randevuKisi">Kiminle</label>
+                <select id="randevuKisi" name="personelUid" required></select>
+              </div>
+              <div class="form-satir">
+                <div class="form-grup">
+                  <label for="randevuTarih">Tarih</label>
+                  <input type="date" id="randevuTarih" name="tarih" required />
+                </div>
+                <div class="form-grup">
+                  <label for="randevuSaat">Saat (isteğe bağlı)</label>
+                  <input type="time" id="randevuSaat" name="saat" />
+                </div>
+              </div>
+              <div class="form-grup">
+                <label for="randevuKonu">Konu</label>
+                <input type="text" id="randevuKonu" name="konu" required placeholder="Örn: Gelişim görüşmesi" />
+              </div>
+              <div class="form-grup">
+                <label for="randevuNot">Not (isteğe bağlı)</label>
+                <textarea id="randevuNot" name="veliNot"></textarea>
+              </div>
+              <button type="submit" class="btn btn--primary" id="randevuBtn">Randevu İste</button>
+            </form>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Randevularım</h2></div>
+            <div id="randevu-liste"></div>
+          </div>
+        </section>
+
+        <!-- KURUM ZİLİ -->
+        <section class="gorunum" id="gorunum-kurumzili">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Kurum Zili</h2></div>
+            <p class="form-yardim">Çocuğunuzu almak için yola çıktığınızda "Geliyorum", kapıya vardığınızda "Geldim" deyin; öğretmen anında bilgilenir.</p>
+            <div id="kurumzili-icerik"></div>
+          </div>
+        </section>
+
+        <!-- SAĞLIK & GELİŞİM -->
+        <section class="gorunum" id="gorunum-saglik">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>💊 İlaç Takibi</h2></div>
+            <p class="form-yardim">Öğretmenin kaydettiği ilaçlar ve uygulanma geçmişi.</p>
+            <div id="ilac-liste"></div>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>📏 Fiziksel Gelişim</h2></div>
+            <div id="olcum-icerik"></div>
+          </div>
+        </section>
+
+        <!-- GERİ BİLDİRİM -->
+        <section class="gorunum" id="gorunum-anketler">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Geri Bildirim İstekleri</h2></div>
+            <p class="form-yardim">Kreşin sizinle paylaştığı anket ve onaylar.</p>
+            <div id="anket-liste"></div>
+          </div>
+        </section>
+
+        <!-- BELGELERİM -->
+        <section class="gorunum" id="gorunum-belgeler">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Size Özel Belgeler</h2></div>
+            <p class="form-yardim">Öğretmen ve yöneticinin çocuğunuz için paylaştığı dokümanlar.</p>
+            <div id="belge-liste"></div>
           </div>
         </section>
       </div>

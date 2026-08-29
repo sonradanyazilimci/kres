@@ -26,7 +26,8 @@ Roller: **superadmin** (sağlayıcı = siz) · **admin** (kreş yöneticisi) ·
 | `js/bildirim.js` | Uygulama içi bildirim çanı (her panelde okunmamış sayacı + açılır liste) |
 | `js/sistem-duyuru.js` | Sağlayıcı sistem duyurularını okur + her sayfaya kapatılabilir bant olarak ekler |
 | `js/tema.js` | Açık / koyu tema geçişi (localStorage'da tutulur, her panele düğme ekler) |
-| `js/drive-upload.js` | Fotoğrafı kreşin kendi Apps Script /exec adresine yükler |
+| `js/drive-upload.js` | Fotoğrafı (küçültür) **ve dokümanı** (`driveDosyaYukle`) kreşin kendi Apps Script /exec adresine yükler |
+| `js/moduller.js` | Ek modüllerin ortak veri katmanı: Randevu · Kurum Zili · Medikal Takip · Fiziksel Gelişim · Geri Bildirim · Ajanda · Öğrenciye Özel Doküman · Günün Özeti (üç panel de paylaşır) |
 | `js/utils.js` · `js/pwa.js` | Yardımcılar (ortak `raporKart` dahil) · PWA kaydı |
 | `aydinlatma-metni.html` · `kvkk-politikasi.html` · `veri-sozlesmesi.html` | **KVKK metin şablonları** (hukukçuya inceletin) |
 | `firestore.rules` | Çok-kiracılı güvenlik kuralları |
@@ -68,9 +69,22 @@ Roller: **superadmin** (sağlayıcı = siz) · **admin** (kreş yöneticisi) ·
 /kresler/{kresId}/izinBelgeleri/{id}       → { tur("gezi"|"izin"|"belge"), baslik, metin, hedefSiniflar[], etkinlikTarihi, olusturanId, tarih }
 /kresler/{kresId}/izinBelgeleri/{id}/yanitlar/{veliUid} → { ogrenciId, karar("onay"|"ret"), not, tarih }   (veli onayı; her veli kendi dokümanını yazar)
 /kresler/{kresId}/aboneOdemeleri/{id}      → { tarih, tutar, yontem, not, uzatmaGun, kaydeden }   (sağlayıcı tahsilat defteri; sadece süper-admin yazar, kreş yöneticisi okur)
+/kresler/{kresId}/randevular/{id}          → { veliUid, ogrenciId, personelUid, personelAd, tarih, saat, konu, veliNot, personelNot, durum("bekliyor"|"onaylandi"|"reddedildi"|"iptal"|"tamamlandi"), olusturma }   (Randevu Modülü; veli ↔ çocuğun öğretmeni / yönetici)
+/kresler/{kresId}/kapiBildirimleri/{ogr_tarih} → { ogrenciId, sinifId, veliUid, tarih, geliyorumAt?, geldimAt? }   (Kurum Zili — veli "Geliyorum"/"Geldim")
+/kresler/{kresId}/ilaclar/{id}            → { ogrenciId, sinifId, ad, doz, saatler, talimat, baslangic, bitis, aktif }   (Medikal Takip — ilaç tanımı)
+/kresler/{kresId}/ilacUygulamalari/{id}   → { ilacId, ogrenciId, sinifId, tarih, saat, uygulayanUid, not }   (doz uygulandı kaydı — değiştirilemez; veliye bildirim gider)
+/kresler/{kresId}/olcumler/{id}           → { ogrenciId, sinifId, tarih, boy, kilo, not }   (Fiziksel Gelişim Takibi — boy/kilo grafiği)
+/kresler/{kresId}/anketler/{id}           → { baslik, aciklama, hedef("veli"|"personel"|"hepsi"), tur("onay"|"metin"|"secim"), secenekler[], aktif, olusturanUid }   (Geri Bildirim Modülü)
+/kresler/{kresId}/anketYanitlari/{anketId_uid} → { anketId, tur, yanitlayanUid, yanitlayanRol, cevap, tarih }   ('onay' türü yanıt değiştirilemez)
+/kresler/{kresId}/ajandaOgeleri/{id}      → { tarih, baslik, tur("etkinlik"|"hatirlatma"|"onemliGun"), aciklama }   (Ajanda Modülü; önemli gün + doğum günleri istemcide otomatik üretilir; yönetici+öğretmen okur)
+/kresler/{kresId}/belgePaylasimlari/{id}  → { ogrenciId, sinifId, baslik, aciklama, driveId, dosyaAdi, webViewLink, indirLink, yukleyenUid, olusturma }   (Öğrenciye Özel Doküman — Google Drive; ilgili velinin okuması)
 /kresler/{kresId}/islemKayitlari/{id}      → { kim, islem, detay, tarih }   (KVKK denetim günlüğü — append-only)
 /site/anasayfa                             → { heroBaslik, heroLead, ozellik1Baslik, ... }   (index.html metinleri; herkese açık okuma, süper-admin yazar)
 ```
+
+> **Günün Özeti Modülü** (yalnız yönetici) yeni koleksiyon kullanmaz: seçilen tarihin
+> `yoklamalar` + `gunlukRaporlar` kayıtlarını sınıf bazında sayıp eksik işlemi olan
+> öğretmene `bildirimler` üzerinden hatırlatma gönderir.
 
 **Abonelik mantığı:** `plan == "deneme"` ise `denemeBitis` geçince kreş "pasif"
 sayılır (istemci + kurallar birlikte). Pasif kreşte **okuma serbest, yazma yok**.

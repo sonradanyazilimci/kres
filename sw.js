@@ -4,7 +4,7 @@
  *  ve fotoğraf servisine (Apps Script) hiç karışmaz.
  * ============================================================= */
 
-const SURUM = "kres-v14";
+const SURUM = "kres-v15";
 const KABUK = [
   "./",
   "./index.html",
@@ -27,6 +27,7 @@ const KABUK = [
   "./js/kayit.js",
   "./js/yonetim.js",
   "./js/site-icerik.js",
+  "./js/moduller.js",
   "./js/bildirim.js",
   "./js/sistem-duyuru.js",
   "./js/tema.js",

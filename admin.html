@@ -31,6 +31,12 @@
       <a href="#" data-gorunum="odemeler"><span class="i">💳</span> Aidat / Ödeme</a>
       <a href="#" data-gorunum="talepler"><span class="i">📨</span> Talepler</a>
       <a href="#" data-gorunum="izinler"><span class="i">📝</span> İzin / Belge</a>
+      <a href="#" data-gorunum="randevular"><span class="i">📅</span> Randevular</a>
+      <a href="#" data-gorunum="saglik"><span class="i">🩺</span> Sağlık & Gelişim</a>
+      <a href="#" data-gorunum="anketler"><span class="i">🗳️</span> Geri Bildirim</a>
+      <a href="#" data-gorunum="ajanda"><span class="i">📆</span> Ajanda</a>
+      <a href="#" data-gorunum="belgeler"><span class="i">📎</span> Belge Paylaşımı</a>
+      <a href="#" data-gorunum="gununozeti"><span class="i">🗒️</span> Günün Özeti</a>
       <a href="#" data-gorunum="program"><span class="i">🍽️</span> Yemek & Program</a>
       <a href="#" data-gorunum="yilsonu"><span class="i">🎓</span> Yıl Sonu</a>
       <a href="#" data-gorunum="ayarlar"><span class="i">⚙️</span> Ayarlar</a>
@@ -443,6 +449,185 @@
               önce bir hukukçuya danışın ve kendi bilgilerinizle güncelleyin.
             </p>
             <div class="tablo-sar mt-1"><table class="veri-tablo" id="islem-tablo"></table></div>
+          </div>
+        </section>
+
+        <!-- RANDEVULAR -->
+        <section class="gorunum" id="gorunum-randevular">
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>Randevular</h2>
+              <select id="randevuFiltre" style="max-width:220px">
+                <option value="acik">Bekleyen / onaylı</option>
+                <option value="hepsi">Tümü</option>
+                <option value="bekliyor">Bekleyen</option>
+                <option value="onaylandi">Onaylı</option>
+                <option value="tamamlandi">Tamamlanan</option>
+              </select>
+            </div>
+            <p class="form-yardim">Veliler, çocuklarının öğretmeni veya yönetici ile randevu oluşturur. Buradan durumu değiştirebilir, not ekleyebilirsiniz.</p>
+            <div id="randevu-liste"></div>
+          </div>
+        </section>
+
+        <!-- SAĞLIK & GELİŞİM -->
+        <section class="gorunum" id="gorunum-saglik">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Öğrenci Seçin</h2></div>
+            <div class="form-satir">
+              <div class="form-grup">
+                <label for="saglikSinif">Sınıf</label>
+                <select id="saglikSinif"></select>
+              </div>
+              <div class="form-grup">
+                <label for="saglikOgrenci">Öğrenci</label>
+                <select id="saglikOgrenci"></select>
+              </div>
+            </div>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>💊 Medikal Takip</h2>
+              <button type="button" class="btn btn--primary btn--sm" id="ilacEkleBtn">+ İlaç Ekle</button>
+            </div>
+            <div id="ilac-liste"></div>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>📏 Fiziksel Gelişim (Boy / Kilo)</h2>
+              <button type="button" class="btn btn--primary btn--sm" id="olcumEkleBtn">+ Ölçüm Ekle</button>
+            </div>
+            <div id="olcum-icerik"></div>
+          </div>
+        </section>
+
+        <!-- GERİ BİLDİRİM / ANKET -->
+        <section class="gorunum" id="gorunum-anketler">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Yeni Geri Bildirim / Anket</h2></div>
+            <form id="anketForm">
+              <div class="form-grup">
+                <label for="anketBaslik">Başlık</label>
+                <input type="text" id="anketBaslik" name="baslik" required />
+              </div>
+              <div class="form-grup">
+                <label for="anketAciklama">Açıklama</label>
+                <textarea id="anketAciklama" name="aciklama"></textarea>
+              </div>
+              <div class="form-satir">
+                <div class="form-grup">
+                  <label for="anketHedef">Kime</label>
+                  <select id="anketHedef" name="hedef">
+                    <option value="veli">Veliler</option>
+                    <option value="personel">Personel</option>
+                    <option value="hepsi">Herkes</option>
+                  </select>
+                </div>
+                <div class="form-grup">
+                  <label for="anketTur">Tür</label>
+                  <select id="anketTur" name="tur">
+                    <option value="onay">Onay (Evet / Hayır)</option>
+                    <option value="metin">Metin cevap</option>
+                    <option value="secim">Çoktan seçmeli</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-grup" id="anketSecenekSar" hidden>
+                <label for="anketSecenekler">Seçenekler (virgülle ayırın)</label>
+                <input type="text" id="anketSecenekler" name="secenekler" placeholder="Örn: Çok iyi, İyi, Orta, Kötü" />
+              </div>
+              <button type="submit" class="btn btn--primary" id="anketBtn">Yayınla</button>
+            </form>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Anketler & Sonuçlar</h2></div>
+            <div id="anket-liste"></div>
+          </div>
+        </section>
+
+        <!-- AJANDA -->
+        <section class="gorunum" id="gorunum-ajanda">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Ajandaya Ekle</h2></div>
+            <form id="ajandaForm">
+              <div class="form-satir">
+                <div class="form-grup">
+                  <label for="ajandaTarih">Tarih</label>
+                  <input type="date" id="ajandaTarih" name="tarih" required />
+                </div>
+                <div class="form-grup">
+                  <label for="ajandaTur">Tür</label>
+                  <select id="ajandaTur" name="tur">
+                    <option value="etkinlik">Etkinlik</option>
+                    <option value="hatirlatma">Hatırlatma</option>
+                    <option value="onemliGun">Önemli gün</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-grup">
+                <label for="ajandaBaslik">Başlık</label>
+                <input type="text" id="ajandaBaslik" name="baslik" required />
+              </div>
+              <div class="form-grup">
+                <label for="ajandaAciklama">Açıklama (isteğe bağlı)</label>
+                <input type="text" id="ajandaAciklama" name="aciklama" />
+              </div>
+              <button type="submit" class="btn btn--primary" id="ajandaBtn">Ekle</button>
+            </form>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Yaklaşan Günler</h2></div>
+            <p class="form-yardim">Önemli gün/haftalar ile öğrenci ve personel doğum günleri otomatik listelenir.</p>
+            <div id="ajanda-liste"></div>
+          </div>
+        </section>
+
+        <!-- BELGE PAYLAŞIMI -->
+        <section class="gorunum" id="gorunum-belgeler">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Öğrenciye Özel Doküman Paylaş</h2></div>
+            <form id="belgeForm">
+              <div class="form-satir">
+                <div class="form-grup">
+                  <label for="belgeSinif">Sınıf</label>
+                  <select id="belgeSinif"></select>
+                </div>
+                <div class="form-grup">
+                  <label for="belgeOgrenci">Öğrenci</label>
+                  <select id="belgeOgrenci"></select>
+                </div>
+              </div>
+              <div class="form-grup">
+                <label for="belgeBaslik">Başlık</label>
+                <input type="text" id="belgeBaslik" name="baslik" required placeholder="Örn: Bireysel gelişim raporu — Mayıs" />
+              </div>
+              <div class="form-grup">
+                <label for="belgeAciklama">Açıklama (isteğe bağlı)</label>
+                <input type="text" id="belgeAciklama" name="aciklama" />
+              </div>
+              <div class="form-grup">
+                <label for="belgeDosya">Dosya (PDF / Word / JPG · en çok 12 MB)</label>
+                <input type="file" id="belgeDosya" accept=".pdf,.doc,.docx,image/*" required />
+              </div>
+              <button type="submit" class="btn btn--primary" id="belgeBtn">Yükle & Paylaş</button>
+              <p class="form-yardim">Dosya kreşin Google Drive'ına yüklenir; yalnızca ilgili öğrencinin velisi görebilir.</p>
+            </form>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Paylaşılan Belgeler</h2></div>
+            <div id="belge-liste"></div>
+          </div>
+        </section>
+
+        <!-- GÜNÜN ÖZETİ -->
+        <section class="gorunum" id="gorunum-gununozeti">
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>Günün Özeti</h2>
+              <input type="date" id="ozetTarih" />
+            </div>
+            <p class="form-yardim">Seçilen gün için her sınıfın yoklama ve günlük rapor durumu. Eksik işlemi olan öğretmene tek tıkla hatırlatma gönderin.</p>
+            <div id="gununozeti-icerik"></div>
           </div>
         </section>
       </div>

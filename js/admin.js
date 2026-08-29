@@ -27,6 +27,15 @@ import {
   yasHesapla, isoDate, firebaseHata, kurPanelGezinme, kurCikis, kullaniciRozeti,
   haftaBaslangici, haftaGunleri, haftaEtiket, haftaKaydir, waLink
 } from "./utils.js";
+import {
+  RANDEVU_DURUM, randevulariGetir, randevuGuncelle, randevuSil,
+  ilacKaydet, ilacSil, ilaclariGetir, ilacUygulamalariGetir, ilacBugunAktif,
+  olcumEkle, olcumSil, olcumleriGetir, bmiHesapla, miniCizgiGrafik,
+  ANKET_TUR, ANKET_HEDEF, anketKaydet, anketSil, anketleriGetir, anketYanitlariGetir,
+  ajandaEkle, ajandaSil, ajandaGetir, ajandaOtomatik, ajandaSirala, AJANDA_TUR,
+  belgePaylas, belgeleriGetir, belgeSil,
+  gunOzeti
+} from "./moduller.js";
 
 temaBaslat();
 
@@ -74,6 +83,12 @@ const nav = kurPanelGezinme({
   "odemeler": "Aidat / Ödeme",
   "talepler": "Talepler",
   "izinler": "İzin / Belge",
+  "randevular": "Randevular",
+  "saglik": "Sağlık & Gelişim",
+  "anketler": "Geri Bildirim",
+  "ajanda": "Ajanda",
+  "belgeler": "Belge Paylaşımı",
+  "gununozeti": "Günün Özeti",
   "program": "Yemek & Program",
   "yilsonu": "Yıl Sonu",
   "ayarlar": "Ayarlar"
@@ -81,6 +96,12 @@ const nav = kurPanelGezinme({
   if (ad === "ayarlar") ayarlariDoldur();
   if (ad === "program") { menuYukle(); programYukle(); }
   if (ad === "yilsonu") yilSonuDoldur();
+  if (ad === "randevular") randevulariYukleAdmin();
+  if (ad === "saglik") saglikYukleAdmin();
+  if (ad === "anketler") anketleriYukleAdmin();
+  if (ad === "ajanda") ajandayiYukleAdmin();
+  if (ad === "belgeler") belgelerYukleAdmin();
+  if (ad === "gununozeti") gununOzetiYukle();
 });
 
 // (Başlangıç çağrıları dosyanın SONUNDA — tüm `const` yardımcılar
@@ -1561,6 +1582,420 @@ function alan(etiket, ad, tur = "text", deger = "", zorunlu = false, saltOkunur 
     ipucu ? el("p", { class: "form-yardim" }, ipucu) : null
   );
 }
+
+// =============================================================
+//  EK MODÜLLER (Randevu · Sağlık & Gelişim · Geri Bildirim ·
+//               Ajanda · Belge Paylaşımı · Günün Özeti)
+// =============================================================
+function sinifSecenekleriHTML() {
+  return durum.siniflar.map((s) => `<option value="${s.id}">${escapeHtml(s.ad)}</option>`).join("");
+}
+function ogrSeceneklerDoldur(sel, sinifId) {
+  const liste = durum.ogrenciler.filter((o) => !sinifId || o.sinifId === sinifId)
+    .sort((a, b) => (a.ad || "").localeCompare(b.ad || "", "tr"));
+  sel.innerHTML = liste.length
+    ? liste.map((o) => `<option value="${o.id}">${escapeHtml(o.ad)} ${escapeHtml(o.soyad)}</option>`).join("")
+    : `<option value="">Öğrenci yok</option>`;
+}
+const veliUidleriOgr = (id) => (durum.ogrenciler.find((o) => o.id === id)?.veliIds) || [];
+
+// ---------- RANDEVULAR ----------
+let randevuFiltre = "acik";
+async function randevulariYukleAdmin() {
+  const c = $("#randevu-liste");
+  c.innerHTML = "<p class='soluk'>Yükleniyor...</p>";
+  let liste;
+  try { liste = await randevulariGetir(); }
+  catch (err) { emptyState(c, firebaseHata(err), "⚠️"); return; }
+  if (randevuFiltre === "acik") liste = liste.filter((r) => r.durum === "bekliyor" || r.durum === "onaylandi");
+  else if (randevuFiltre !== "hepsi") liste = liste.filter((r) => r.durum === randevuFiltre);
+  if (!liste.length) { emptyState(c, "Randevu yok.", "📅"); return; }
+  c.innerHTML = "";
+  liste.forEach((r) => {
+    const d = RANDEVU_DURUM[r.durum] || { e: r.durum, r: "bilgi" };
+    c.appendChild(el("div", { class: "liste-oge" },
+      el("div", { class: "liste-oge__ust" },
+        el("strong", {}, `${escapeHtml(r.konu || "Randevu")} — ${formatDate(r.tarih)}${r.saat ? " " + escapeHtml(r.saat) : ""}`),
+        el("span", { class: `rozet rozet--${d.r}` }, d.e)),
+      el("div", { class: "satir-arasi mt-1" },
+        el("span", { class: "rozet" }, "Öğrenci: " + ogrenciAdi(r.ogrenciId)),
+        el("span", { class: "rozet rozet--bilgi" }, "Personel: " + (r.personelAd || kullaniciAdi(r.personelUid)))),
+      r.veliNot ? el("div", { class: "rapor-kart__metin mt-1" }, el("strong", {}, "Veli notu: "), document.createTextNode(r.veliNot)) : null,
+      r.personelNot ? el("div", { class: "rapor-kart__metin mt-1" }, el("strong", {}, "Personel notu: "), document.createTextNode(r.personelNot)) : null,
+      el("div", { class: "satir-arasi mt-1" },
+        el("button", { class: "btn btn--primary btn--sm", onClick: () => randevuDurumAdmin(r) }, "Durum / Not"),
+        el("button", { class: "btn btn--danger btn--sm", onClick: () => randevuSilAdmin(r.id) }, "Sil"))));
+  });
+}
+function randevuDurumAdmin(r) {
+  const form = el("form", {},
+    el("div", { class: "form-grup" }, el("label", {}, "Durum"),
+      el("select", { name: "durum" }, ...["bekliyor", "onaylandi", "reddedildi", "tamamlandi", "iptal"].map((k) =>
+        el("option", { value: k, ...(r.durum === k ? { selected: "" } : {}) }, RANDEVU_DURUM[k].e)))),
+    el("div", { class: "form-grup" }, el("label", {}, "Not"),
+      el("textarea", { name: "personelNot" }, r.personelNot || "")),
+    el("button", { class: "btn btn--primary btn--block mt-1", type: "submit" }, "Kaydet"));
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!yazmaKontrol()) return;
+    const v = formData(form);
+    try {
+      await randevuGuncelle(r.id, { durum: v.durum, personelNot: v.personelNot || "", guncelleme: serverTimestamp() });
+      bildirimGonder(r.veliUid, "randevu", "Randevu güncellendi",
+        `${r.konu || "Randevu"} — ${RANDEVU_DURUM[v.durum].e}`, "randevular");
+      closeModal(); toast("Güncellendi.", "success"); randevulariYukleAdmin();
+    } catch (err) { toast(firebaseHata(err), "error"); }
+  });
+  openModal("Randevu — " + escapeHtml(r.konu || ""), form);
+}
+async function randevuSilAdmin(id) {
+  if (!await confirmDialog("Bu randevu silinsin mi?")) return;
+  try { await randevuSil(id); toast("Silindi.", "success"); randevulariYukleAdmin(); }
+  catch (err) { toast(firebaseHata(err), "error"); }
+}
+
+// ---------- SAĞLIK & GELİŞİM ----------
+function saglikYukleAdmin() {
+  const ss = $("#saglikSinif"), os = $("#saglikOgrenci");
+  if (!ss.dataset.kuruldu) {
+    ss.innerHTML = sinifSecenekleriHTML();
+    ss.dataset.kuruldu = "1";
+    ss.addEventListener("change", () => { ogrSeceneklerDoldur(os, ss.value); saglikDetayAdmin(); });
+    os.addEventListener("change", saglikDetayAdmin);
+  }
+  ogrSeceneklerDoldur(os, ss.value);
+  saglikDetayAdmin();
+}
+async function saglikDetayAdmin() {
+  const ogrenciId = $("#saglikOgrenci").value;
+  const sinifId = $("#saglikSinif").value;
+  const ic = $("#ilac-liste"), oc = $("#olcum-icerik");
+  if (!ogrenciId) { emptyState(ic, "Öğrenci seçin.", "💊"); oc.innerHTML = ""; return; }
+  ic.innerHTML = "<p class='soluk'>Yükleniyor...</p>"; oc.innerHTML = "";
+
+  let ilaclar = [], uyg = [], olcumler = [];
+  try { ilaclar = (await ilaclariGetir({ sinifId })).filter((x) => x.ogrenciId === ogrenciId); } catch { /* yoksay */ }
+  try { uyg = (await ilacUygulamalariGetir({ sinifId })).filter((x) => x.ogrenciId === ogrenciId); } catch { /* yoksay */ }
+  try { olcumler = (await olcumleriGetir({ sinifId })).filter((x) => x.ogrenciId === ogrenciId); } catch { /* yoksay */ }
+
+  ic.innerHTML = "";
+  if (!ilaclar.length) emptyState(ic, "Kayıtlı ilaç yok.", "💊");
+  else ilaclar.forEach((il) => {
+    const gecmis = uyg.filter((u) => u.ilacId === il.id).slice(0, 6);
+    ic.appendChild(el("div", { class: "liste-oge" },
+      el("div", { class: "liste-oge__ust" },
+        el("strong", {}, escapeHtml(il.ad)),
+        el("span", { class: `rozet rozet--${ilacBugunAktif(il) ? "basari" : "bilgi"}` }, ilacBugunAktif(il) ? "Aktif" : "Pasif")),
+      el("p", { class: "soluk" }, `${escapeHtml(il.doz || "")}${il.saatler ? " · " + escapeHtml(il.saatler) : ""}${il.baslangic ? " · " + il.baslangic + (il.bitis ? " → " + il.bitis : "") : ""}`),
+      il.talimat ? el("p", {}, escapeHtml(il.talimat)) : null,
+      gecmis.length ? el("div", { class: "rapor-kart__metin mt-1" }, el("strong", {}, "Uygulamalar: "),
+        document.createTextNode(gecmis.map((g) => `${formatDate(g.tarih)} ${g.saat || ""}`).join(", "))) : null,
+      el("div", { class: "satir-arasi mt-1" },
+        el("button", { class: "btn btn--ghost btn--sm", onClick: () => ilacFormuAdmin(il) }, "Düzenle"),
+        el("button", { class: "btn btn--danger btn--sm", onClick: () => ilacSilAdmin(il) }, "Sil"))));
+  });
+
+  oc.innerHTML = "";
+  if (!olcumler.length) { emptyState(oc, "Ölçüm yok.", "📏"); return; }
+  const son = olcumler[olcumler.length - 1];
+  const b = bmiHesapla(son.boy, son.kilo);
+  oc.appendChild(el("div", { class: "satir-arasi mb-1" },
+    el("span", { class: "rozet rozet--bilgi" }, `Boy: ${son.boy} cm`),
+    el("span", { class: "rozet rozet--bilgi" }, `Kilo: ${son.kilo} kg`),
+    b ? el("span", { class: "rozet" }, `VKİ: ${b.toFixed(1)}`) : null));
+  oc.appendChild(el("h3", { style: "font-size:1rem;margin:12px 0 4px" }, "Boy (cm)"));
+  oc.appendChild(miniCizgiGrafik(olcumler.map((x) => ({ x: x.tarih, y: Number(x.boy) })), { birim: " cm", renk: "#4bb3a7" }));
+  oc.appendChild(el("h3", { style: "font-size:1rem;margin:12px 0 4px" }, "Kilo (kg)"));
+  oc.appendChild(miniCizgiGrafik(olcumler.map((x) => ({ x: x.tarih, y: Number(x.kilo) })), { birim: " kg" }));
+  oc.appendChild(el("div", { class: "mt-1" }, ...olcumler.slice().reverse().map((x) =>
+    el("div", { class: "satir-arasi", style: "margin:3px 0" },
+      el("span", { class: "soluk" }, `${formatDate(x.tarih)} — ${x.boy} cm / ${x.kilo} kg`),
+      el("button", { class: "btn btn--ghost btn--sm", onClick: () => olcumSilAdmin(x) }, "Sil")))));
+}
+function ilacFormuAdmin(mevcut = null) {
+  const ogrenciId = $("#saglikOgrenci").value, sinifId = $("#saglikSinif").value;
+  if (!ogrenciId) { toast("Önce öğrenci seçin.", "warning"); return; }
+  const f = el("form", {},
+    el("div", { class: "form-grup" }, el("label", {}, "İlaç adı"), el("input", { name: "ad", required: "", value: mevcut?.ad || "" })),
+    el("div", { class: "form-satir" },
+      el("div", { class: "form-grup" }, el("label", {}, "Doz"), el("input", { name: "doz", value: mevcut?.doz || "" })),
+      el("div", { class: "form-grup" }, el("label", {}, "Saat(ler)"), el("input", { name: "saatler", value: mevcut?.saatler || "" }))),
+    el("div", { class: "form-grup" }, el("label", {}, "Talimat / not"), el("textarea", { name: "talimat" }, mevcut?.talimat || "")),
+    el("div", { class: "form-satir" },
+      el("div", { class: "form-grup" }, el("label", {}, "Başlangıç"), el("input", { type: "date", name: "baslangic", value: mevcut?.baslangic || isoDate() })),
+      el("div", { class: "form-grup" }, el("label", {}, "Bitiş"), el("input", { type: "date", name: "bitis", value: mevcut?.bitis || "" }))),
+    el("label", { class: "satir-arasi", style: "gap:8px;font-weight:700" },
+      el("input", { type: "checkbox", name: "aktif", style: "width:auto", ...(mevcut?.aktif === false ? {} : { checked: "" }) }), "Aktif"),
+    el("button", { class: "btn btn--primary btn--block mt-1", type: "submit" }, mevcut ? "Kaydet" : "Ekle"));
+  f.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!yazmaKontrol()) return;
+    const v = formData(f);
+    try {
+      await ilacKaydet(mevcut?.id, {
+        ogrenciId, sinifId, ad: v.ad, doz: v.doz || "", saatler: v.saatler || "",
+        talimat: v.talimat || "", baslangic: v.baslangic || "", bitis: v.bitis || "",
+        aktif: v.aktif === "on" || v.aktif === true
+      });
+      closeModal(); toast("Kaydedildi.", "success"); saglikDetayAdmin();
+    } catch (err) { toast(firebaseHata(err), "error"); }
+  });
+  openModal(mevcut ? "İlaç Düzenle" : "İlaç Ekle", f);
+}
+async function ilacSilAdmin(il) {
+  if (!await confirmDialog(`"${il.ad}" silinsin mi?`)) return;
+  try { await ilacSil(il.id); toast("Silindi.", "success"); saglikDetayAdmin(); }
+  catch (err) { toast(firebaseHata(err), "error"); }
+}
+function olcumFormuAdmin() {
+  const ogrenciId = $("#saglikOgrenci").value, sinifId = $("#saglikSinif").value;
+  if (!ogrenciId) { toast("Önce öğrenci seçin.", "warning"); return; }
+  const f = el("form", {},
+    el("div", { class: "form-grup" }, el("label", {}, "Tarih"), el("input", { type: "date", name: "tarih", required: "", value: isoDate() })),
+    el("div", { class: "form-satir" },
+      el("div", { class: "form-grup" }, el("label", {}, "Boy (cm)"), el("input", { type: "number", name: "boy", step: "0.1", min: "0", required: "" })),
+      el("div", { class: "form-grup" }, el("label", {}, "Kilo (kg)"), el("input", { type: "number", name: "kilo", step: "0.1", min: "0", required: "" }))),
+    el("button", { class: "btn btn--primary btn--block mt-1", type: "submit" }, "Ekle"));
+  f.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!yazmaKontrol()) return;
+    const v = formData(f);
+    try {
+      await olcumEkle({ ogrenciId, sinifId, tarih: v.tarih, boy: Number(v.boy), kilo: Number(v.kilo), not: "" });
+      closeModal(); toast("Ölçüm eklendi.", "success"); saglikDetayAdmin();
+    } catch (err) { toast(firebaseHata(err), "error"); }
+  });
+  openModal("Ölçüm Ekle", f);
+}
+async function olcumSilAdmin(x) {
+  if (!await confirmDialog("Bu ölçüm silinsin mi?")) return;
+  try { await olcumSil(x.id); toast("Silindi.", "success"); saglikDetayAdmin(); }
+  catch (err) { toast(firebaseHata(err), "error"); }
+}
+
+// ---------- GERİ BİLDİRİM / ANKET ----------
+async function anketleriYukleAdmin() {
+  const c = $("#anket-liste");
+  c.innerHTML = "<p class='soluk'>Yükleniyor...</p>";
+  let anketler;
+  try { anketler = await anketleriGetir(); }
+  catch (err) { emptyState(c, firebaseHata(err), "⚠️"); return; }
+  if (!anketler.length) { emptyState(c, "Henüz anket yok.", "🗳️"); return; }
+  c.innerHTML = "";
+  for (const a of anketler) {
+    let yanitlar = [];
+    try { yanitlar = await anketYanitlariGetir(a.id); } catch { /* yoksay */ }
+    const oge = el("div", { class: "liste-oge" },
+      el("div", { class: "liste-oge__ust" },
+        el("strong", {}, escapeHtml(a.baslik)),
+        el("span", { class: "liste-oge__tarih" }, formatDateTime(a.olusturma))),
+      el("div", { class: "satir-arasi mt-1" },
+        el("span", { class: "rozet rozet--bilgi" }, ANKET_TUR[a.tur] || a.tur),
+        el("span", { class: "rozet" }, ANKET_HEDEF[a.hedef] || a.hedef),
+        el("span", { class: `rozet rozet--${a.aktif === false ? "hata" : "basari"}` }, a.aktif === false ? "Kapalı" : "Açık"),
+        el("span", { class: "rozet" }, `${yanitlar.length} yanıt`)),
+      a.aciklama ? el("p", { class: "mt-1" }, escapeHtml(a.aciklama)) : null,
+      anketOzetHTML(a, yanitlar),
+      el("div", { class: "satir-arasi mt-1" },
+        el("button", { class: "btn btn--ghost btn--sm", onClick: () => anketAcKapat(a) }, a.aktif === false ? "Aç" : "Kapat"),
+        el("button", { class: "btn btn--danger btn--sm", onClick: () => anketSilAdmin(a.id) }, "Sil")));
+    c.appendChild(oge);
+  }
+}
+function anketOzetHTML(a, yanitlar) {
+  const box = el("div", { class: "mt-1" });
+  if (!yanitlar.length) { box.appendChild(el("p", { class: "soluk" }, "Henüz yanıt yok.")); return box; }
+  if (a.tur === "onay") {
+    const evet = yanitlar.filter((y) => y.cevap === true).length;
+    box.appendChild(el("p", {}, `👍 Evet: ${evet}  ·  👎 Hayır: ${yanitlar.length - evet}`));
+  } else if (a.tur === "secim") {
+    const say = {};
+    yanitlar.forEach((y) => { say[y.cevap] = (say[y.cevap] || 0) + 1; });
+    (a.secenekler || []).forEach((s) => box.appendChild(el("div", {}, `• ${escapeHtml(s)}: ${say[s] || 0}`)));
+  } else {
+    yanitlar.slice(0, 8).forEach((y) => box.appendChild(
+      el("div", { class: "rapor-kart__metin" }, document.createTextNode("“" + String(y.cevap) + "”"))));
+  }
+  return box;
+}
+async function anketKaydetAdmin(e) {
+  e.preventDefault();
+  if (!yazmaKontrol()) return;
+  const v = formData(e.target);
+  const btn = $("#anketBtn");
+  btn.disabled = true;
+  try {
+    await anketKaydet(null, {
+      baslik: v.baslik, aciklama: v.aciklama || "", hedef: v.hedef, tur: v.tur,
+      secenekler: v.tur === "secim"
+        ? (v.secenekler || "").split(",").map((s) => s.trim()).filter(Boolean)
+        : [],
+      aktif: true, olusturanUid: profil.uid
+    });
+    e.target.reset();
+    $("#anketSecenekSar").hidden = true;
+    toast("Anket yayınlandı.", "success");
+    anketleriYukleAdmin();
+  } catch (err) { toast(firebaseHata(err), "error"); }
+  finally { btn.disabled = false; }
+}
+async function anketAcKapat(a) {
+  try { await anketKaydet(a.id, { aktif: a.aktif === false }); anketleriYukleAdmin(); }
+  catch (err) { toast(firebaseHata(err), "error"); }
+}
+async function anketSilAdmin(id) {
+  if (!await confirmDialog("Bu anket ve yanıt özeti listeden kaldırılsın mı?")) return;
+  try { await anketSil(id); toast("Silindi.", "success"); anketleriYukleAdmin(); }
+  catch (err) { toast(firebaseHata(err), "error"); }
+}
+
+// ---------- AJANDA ----------
+async function ajandayiYukleAdmin() {
+  const c = $("#ajanda-liste");
+  c.innerHTML = "<p class='soluk'>Yükleniyor...</p>";
+  let kayitli = [];
+  try { kayitli = await ajandaGetir(); } catch { /* yoksay */ }
+  const kisiler = [
+    ...durum.ogrenciler.map((o) => ({ ad: o.ad, soyad: o.soyad, dogumTarihi: o.dogumTarihi, _tip: "ogrenci" })),
+    ...durum.kullanicilar.filter((u) => u.dogumTarihi).map((u) => ({ ad: u.ad, soyad: u.soyad, dogumTarihi: u.dogumTarihi, _tip: "personel" }))
+  ];
+  const hepsi = ajandaSirala([...kayitli, ...ajandaOtomatik(kisiler)]);
+  c.innerHTML = "";
+  hepsi.slice(0, 80).forEach((o) => {
+    const t = AJANDA_TUR[o.tur] || AJANDA_TUR.etkinlik;
+    c.appendChild(el("div", { class: "liste-oge" },
+      el("div", { class: "liste-oge__ust" },
+        el("strong", {}, `${t.i} ${escapeHtml(o.baslik)}`),
+        el("span", { class: "liste-oge__tarih" }, formatDate(o.tarih))),
+      o.aciklama ? el("p", {}, escapeHtml(o.aciklama)) : null,
+      o.id ? el("div", { class: "satir-arasi mt-1" },
+        el("button", { class: "btn btn--danger btn--sm", onClick: () => ajandaSilAdmin(o.id) }, "Sil")) : null));
+  });
+}
+async function ajandaKaydetAdmin(e) {
+  e.preventDefault();
+  if (!yazmaKontrol()) return;
+  const v = formData(e.target);
+  try {
+    await ajandaEkle({ tarih: v.tarih, baslik: v.baslik, tur: v.tur, aciklama: v.aciklama || "", olusturanUid: profil.uid });
+    e.target.reset();
+    toast("Eklendi.", "success");
+    ajandayiYukleAdmin();
+  } catch (err) { toast(firebaseHata(err), "error"); }
+}
+async function ajandaSilAdmin(id) {
+  if (!await confirmDialog("Bu ajanda öğesi silinsin mi?")) return;
+  try { await ajandaSil(id); toast("Silindi.", "success"); ajandayiYukleAdmin(); }
+  catch (err) { toast(firebaseHata(err), "error"); }
+}
+
+// ---------- BELGE PAYLAŞIMI ----------
+function belgelerYukleAdmin() {
+  const ss = $("#belgeSinif"), os = $("#belgeOgrenci");
+  if (!ss.dataset.kuruldu) {
+    ss.innerHTML = sinifSecenekleriHTML();
+    ss.dataset.kuruldu = "1";
+    ss.addEventListener("change", () => ogrSeceneklerDoldur(os, ss.value));
+  }
+  ogrSeceneklerDoldur(os, ss.value);
+  belgeListeAdmin();
+}
+async function belgeListeAdmin() {
+  const c = $("#belge-liste");
+  c.innerHTML = "<p class='soluk'>Yükleniyor...</p>";
+  let liste;
+  try { liste = await belgeleriGetir(); }
+  catch (err) { emptyState(c, firebaseHata(err), "⚠️"); return; }
+  if (!liste.length) { emptyState(c, "Paylaşılan belge yok.", "📎"); return; }
+  c.innerHTML = "";
+  liste.forEach((b) => {
+    c.appendChild(el("div", { class: "liste-oge" },
+      el("div", { class: "liste-oge__ust" },
+        el("strong", {}, escapeHtml(b.baslik)),
+        el("span", { class: "liste-oge__tarih" }, formatDateTime(b.olusturma))),
+      el("p", { class: "soluk" }, ogrenciAdi(b.ogrenciId)),
+      b.aciklama ? el("p", {}, escapeHtml(b.aciklama)) : null,
+      el("div", { class: "satir-arasi mt-1" },
+        el("a", { class: "btn btn--ghost btn--sm", href: b.webViewLink, target: "_blank", rel: "noopener" }, "Aç"),
+        el("button", { class: "btn btn--danger btn--sm", onClick: () => belgeSilAdmin(b) }, "Sil"))));
+  });
+}
+async function belgeGonderAdmin(e) {
+  e.preventDefault();
+  if (!yazmaKontrol()) return;
+  const ogrenciId = $("#belgeOgrenci").value;
+  const sinifId = $("#belgeSinif").value;
+  if (!ogrenciId) { toast("Öğrenci seçin.", "warning"); return; }
+  const dosya = $("#belgeDosya").files[0];
+  if (!dosya) return;
+  const v = formData(e.target);
+  const btn = $("#belgeBtn");
+  btn.disabled = true; btn.textContent = "Yükleniyor...";
+  try {
+    await belgePaylas(dosya, {
+      ogrenciId, sinifId, baslik: v.baslik, aciklama: v.aciklama,
+      yukleyenUid: profil.uid, driveUrl: aktifKres()?.driveUrl, driveSir: aktifKres()?.driveSir
+    });
+    bildirimGonder(veliUidleriOgr(ogrenciId), "belge", "Yeni belge paylaşıldı", v.baslik, "belgeler");
+    e.target.reset();
+    toast("Belge paylaşıldı.", "success");
+    belgeListeAdmin();
+  } catch (err) { toast(err.message || firebaseHata(err), "error", 6000); }
+  finally { btn.disabled = false; btn.textContent = "Yükle & Paylaş"; }
+}
+async function belgeSilAdmin(b) {
+  if (!await confirmDialog("Bu belge kaydı silinsin mi? (Drive'daki dosya kalır)")) return;
+  try { await belgeSil(b.id); toast("Silindi.", "success"); belgeListeAdmin(); }
+  catch (err) { toast(firebaseHata(err), "error"); }
+}
+
+// ---------- GÜNÜN ÖZETİ ----------
+async function gununOzetiYukle() {
+  const c = $("#gununozeti-icerik");
+  const t = $("#ozetTarih");
+  if (!t.value) t.value = isoDate();
+  c.innerHTML = "<p class='soluk'>Yükleniyor...</p>";
+  let sonuc;
+  try { sonuc = await gunOzeti(t.value, { siniflar: durum.siniflar, ogrenciler: durum.ogrenciler }); }
+  catch (err) { emptyState(c, firebaseHata(err), "⚠️"); return; }
+  if (!sonuc.length) { emptyState(c, "Sınıf yok.", "🗒️"); return; }
+  c.innerHTML = "";
+  sonuc.forEach((s) => {
+    const rozet = (tam, sayi) => el("span", { class: `rozet rozet--${tam ? "basari" : sayi ? "uyari" : "hata"}` },
+      `${tam ? "✅" : "⚠️"} ${sayi}/${s.toplam}`);
+    c.appendChild(el("div", { class: "liste-oge" },
+      el("div", { class: "liste-oge__ust" },
+        el("strong", {}, escapeHtml(s.sinif.ad)),
+        el("span", { class: "soluk" }, s.ogretmenId ? kullaniciAdi(s.ogretmenId) : "Öğretmen atanmadı")),
+      el("div", { class: "satir-arasi mt-1" },
+        el("span", {}, "Yoklama: "), rozet(s.yoklamaTam, s.yoklama),
+        el("span", {}, " Rapor: "), rozet(s.raporTam, s.rapor)),
+      (s.ogretmenId && (!s.yoklamaTam || !s.raporTam))
+        ? el("div", { class: "satir-arasi mt-1" },
+            el("button", { class: "btn btn--primary btn--sm", onClick: () => ozetHatirlat(s) }, "🔔 Hatırlat"))
+        : null));
+  });
+}
+async function ozetHatirlat(s) {
+  const eksik = [];
+  if (!s.yoklamaTam) eksik.push("yoklama");
+  if (!s.raporTam) eksik.push("günlük rapor");
+  try {
+    await bildirimGonder(s.ogretmenId, "hatirlatma", "Eksik işlem hatırlatması",
+      `${s.sinif.ad}: ${eksik.join(" ve ")} bekliyor (${formatDate($("#ozetTarih").value)}).`, "");
+    toast("Hatırlatma gönderildi.", "success");
+  } catch (err) { toast(firebaseHata(err), "error"); }
+}
+
+// Ek modül olay bağlama
+$("#randevuFiltre")?.addEventListener("change", (e) => { randevuFiltre = e.target.value; randevulariYukleAdmin(); });
+$("#ilacEkleBtn")?.addEventListener("click", () => ilacFormuAdmin());
+$("#olcumEkleBtn")?.addEventListener("click", () => olcumFormuAdmin());
+$("#anketForm")?.addEventListener("submit", anketKaydetAdmin);
+$("#anketTur")?.addEventListener("change", (e) => { $("#anketSecenekSar").hidden = e.target.value !== "secim"; });
+$("#ajandaForm")?.addEventListener("submit", ajandaKaydetAdmin);
+$("#belgeForm")?.addEventListener("submit", belgeGonderAdmin);
+$("#ozetTarih")?.addEventListener("change", gununOzetiYukle);
 
 // =============================================================
 //  BAŞLANGIÇ

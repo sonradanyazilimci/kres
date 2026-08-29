@@ -30,6 +30,12 @@
       <a href="#" data-gorunum="program"><span class="i">🍽️</span> Yemek & Program</a>
       <a href="#" data-gorunum="mesajlar"><span class="i">💬</span> Mesajlar</a>
       <a href="#" data-gorunum="istek"><span class="i">📨</span> Yönetime İstek</a>
+      <a href="#" data-gorunum="randevular"><span class="i">📅</span> Randevular</a>
+      <a href="#" data-gorunum="kurumzili"><span class="i">🔔</span> Kurum Zili</a>
+      <a href="#" data-gorunum="saglik"><span class="i">🩺</span> Sağlık & Gelişim</a>
+      <a href="#" data-gorunum="anketler"><span class="i">🗳️</span> Geri Bildirim</a>
+      <a href="#" data-gorunum="ajanda"><span class="i">📆</span> Ajanda</a>
+      <a href="#" data-gorunum="belgeler"><span class="i">📎</span> Belgeler</a>
       <div class="yan-menu__alt">
         <a href="#" id="cikisBtn"><span class="i">🚪</span> Çıkış Yap</a>
       </div>
@@ -300,6 +306,102 @@
                 <button type="submit" class="btn btn--primary" disabled>Gönder</button>
               </form>
             </div>
+          </div>
+        </section>
+
+        <!-- RANDEVULAR -->
+        <section class="gorunum" id="gorunum-randevular">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Randevularım</h2></div>
+            <p class="form-yardim">Velilerin sizinle oluşturduğu randevular. Onaylayın, reddedin veya not ekleyin.</p>
+            <div id="randevu-liste"></div>
+          </div>
+        </section>
+
+        <!-- KURUM ZİLİ -->
+        <section class="gorunum" id="gorunum-kurumzili">
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>Kurum Zili — Bugün</h2>
+              <button type="button" class="btn btn--ghost btn--sm" id="kurumziliYenile">↻ Yenile</button>
+            </div>
+            <p class="form-yardim">Veli "Geliyorum" dediğinde yola çıktığını, "Geldim" dediğinde kapıda olduğunu görürsünüz. Bildiriminize de düşer.</p>
+            <div id="kurumzili-liste"></div>
+          </div>
+        </section>
+
+        <!-- SAĞLIK & GELİŞİM -->
+        <section class="gorunum" id="gorunum-saglik">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Öğrenci Seçin</h2></div>
+            <div class="form-grup" style="max-width:320px">
+              <label for="saglikOgrenci">Öğrenci</label>
+              <select id="saglikOgrenci"></select>
+            </div>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>💊 Medikal Takip</h2>
+              <button type="button" class="btn btn--primary btn--sm" id="ilacEkleBtn">+ İlaç Ekle</button>
+            </div>
+            <div id="bugun-ilac" class="mb-1"></div>
+            <div id="ilac-liste"></div>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>📏 Fiziksel Gelişim</h2>
+              <button type="button" class="btn btn--primary btn--sm" id="olcumEkleBtn">+ Ölçüm Ekle</button>
+            </div>
+            <div id="olcum-icerik"></div>
+          </div>
+        </section>
+
+        <!-- GERİ BİLDİRİM -->
+        <section class="gorunum" id="gorunum-anketler">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Geri Bildirim İstekleri</h2></div>
+            <p class="form-yardim">Yönetimin personele yönelttiği anket ve onayları buradan yanıtlayın.</p>
+            <div id="anket-liste"></div>
+          </div>
+        </section>
+
+        <!-- AJANDA -->
+        <section class="gorunum" id="gorunum-ajanda">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Ajanda</h2></div>
+            <p class="form-yardim">Önemli gün/haftalar, doğum günleri ve yönetimin eklediği etkinlikler.</p>
+            <div id="ajanda-liste"></div>
+          </div>
+        </section>
+
+        <!-- BELGELER -->
+        <section class="gorunum" id="gorunum-belgeler">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Öğrenciye Doküman Paylaş</h2></div>
+            <form id="belgeForm">
+              <div class="form-grup" style="max-width:320px">
+                <label for="belgeOgrenci">Öğrenci</label>
+                <select id="belgeOgrenci"></select>
+              </div>
+              <div class="form-grup">
+                <label for="belgeBaslik">Başlık</label>
+                <input type="text" id="belgeBaslik" name="baslik" required />
+              </div>
+              <div class="form-grup">
+                <label for="belgeAciklama">Açıklama (isteğe bağlı)</label>
+                <input type="text" id="belgeAciklama" name="aciklama" />
+              </div>
+              <div class="form-grup">
+                <label for="belgeDosya">Dosya (PDF / Word / JPG · en çok 12 MB)</label>
+                <input type="file" id="belgeDosya" accept=".pdf,.doc,.docx,image/*" required />
+              </div>
+              <button type="submit" class="btn btn--primary" id="belgeBtn">Yükle & Paylaş</button>
+              <p class="form-yardim">Dosya kreşin Google Drive'ına yüklenir; yalnızca ilgili öğrencinin velisi görebilir.</p>
+            </form>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Paylaştıklarım</h2></div>
+            <div id="belge-liste"></div>
           </div>
         </section>
       </div>

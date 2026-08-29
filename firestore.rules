@@ -363,6 +363,130 @@ service cloud.firestore {
       }
 
       // -----------------------------------------------------
+      //  randevular (veli <-> personel: cocugun ogretmeni / yonetici)
+      // -----------------------------------------------------
+      match /randevular/{id} {
+        allow read: if superAdmin() || kadmin(kid)
+          || (uyesi(kid) && resource.data.personelUid == uid())
+          || (uyesi(kid) && resource.data.veliUid == uid());
+        allow create: if yazabilir(kid) && uyesi(kid)
+          && request.resource.data.veliUid == uid()
+          && ogrenciVelisi(kid, request.resource.data.ogrenciId)
+          && request.resource.data.durum == 'bekliyor';
+        // Personel/yonetici durum + not gunceller; veli kendi randevusunu duzenler/iptal eder.
+        allow update: if yazabilir(kid) && (
+          kadmin(kid)
+          || (uyesi(kid) && resource.data.personelUid == uid())
+          || (uyesi(kid) && resource.data.veliUid == uid()
+              && request.resource.data.veliUid == resource.data.veliUid
+              && request.resource.data.personelUid == resource.data.personelUid
+              && request.resource.data.ogrenciId == resource.data.ogrenciId)
+        );
+        allow delete: if superAdmin() || kadmin(kid)
+          || (uyesi(kid) && resource.data.veliUid == uid());
+      }
+
+      // -----------------------------------------------------
+      //  kapiBildirimleri (Kurum Zili — "Geliyorum" / "Geldim")
+      //  Dokuman kimligi: {ogrenciId}_{tarih}
+      // -----------------------------------------------------
+      match /kapiBildirimleri/{id} {
+        allow read: if superAdmin() || kadmin(kid)
+          || (kogretmen(kid) && sinifOgretmeni(kid, resource.data.sinifId))
+          || (uyesi(kid) && resource.data.veliUid == uid());
+        allow create, update: if yazabilir(kid) && uyesi(kid)
+          && request.resource.data.veliUid == uid()
+          && ogrenciVelisi(kid, request.resource.data.ogrenciId);
+        allow delete: if superAdmin() || kadmin(kid);
+      }
+
+      // -----------------------------------------------------
+      //  ilaclar (Medikal Takip — ilac tanimi)
+      // -----------------------------------------------------
+      match /ilaclar/{id} {
+        allow read: if superAdmin() || kadmin(kid)
+          || (kogretmen(kid) && sinifOgretmeni(kid, resource.data.sinifId))
+          || ogrenciVelisi(kid, resource.data.ogrenciId);
+        allow create, update: if yazabilir(kid) && (kadmin(kid)
+          || (kogretmen(kid) && sinifOgretmeni(kid, request.resource.data.sinifId)));
+        allow delete: if yazabilir(kid) && (kadmin(kid)
+          || (kogretmen(kid) && sinifOgretmeni(kid, resource.data.sinifId)));
+      }
+
+      // -----------------------------------------------------
+      //  ilacUygulamalari (doz uygulandi kaydi — degistirilemez)
+      // -----------------------------------------------------
+      match /ilacUygulamalari/{id} {
+        allow read: if superAdmin() || kadmin(kid)
+          || (kogretmen(kid) && sinifOgretmeni(kid, resource.data.sinifId))
+          || ogrenciVelisi(kid, resource.data.ogrenciId);
+        allow create: if yazabilir(kid)
+          && request.resource.data.uygulayanUid == uid()
+          && (kadmin(kid)
+              || (kogretmen(kid) && sinifOgretmeni(kid, request.resource.data.sinifId)));
+        allow update: if false;
+        allow delete: if yazabilir(kid)
+          && (kadmin(kid) || resource.data.uygulayanUid == uid());
+      }
+
+      // -----------------------------------------------------
+      //  olcumler (Fiziksel Gelisim Takibi — boy / kilo)
+      // -----------------------------------------------------
+      match /olcumler/{id} {
+        allow read: if superAdmin() || kadmin(kid)
+          || (kogretmen(kid) && sinifOgretmeni(kid, resource.data.sinifId))
+          || ogrenciVelisi(kid, resource.data.ogrenciId);
+        allow create, update: if yazabilir(kid) && (kadmin(kid)
+          || (kogretmen(kid) && sinifOgretmeni(kid, request.resource.data.sinifId)));
+        allow delete: if yazabilir(kid) && (kadmin(kid)
+          || (kogretmen(kid) && sinifOgretmeni(kid, resource.data.sinifId)));
+      }
+
+      // -----------------------------------------------------
+      //  anketler (Geri Bildirim Modulu) + anketYanitlari
+      // -----------------------------------------------------
+      match /anketler/{id} {
+        allow read: if uyesi(kid) || superAdmin();
+        allow write: if (superAdmin() || kadmin(kid)) && yazabilir(kid);
+      }
+      match /anketYanitlari/{id} {
+        allow read: if superAdmin() || kadmin(kid)
+          || (uyesi(kid) && resource.data.yanitlayanUid == uid());
+        allow create: if yazabilir(kid) && uyesi(kid)
+          && request.resource.data.yanitlayanUid == uid();
+        // 'onay' turu yanitlari degistirilemez; digerleri guncellenebilir.
+        allow update: if yazabilir(kid) && uyesi(kid)
+          && resource.data.yanitlayanUid == uid()
+          && request.resource.data.yanitlayanUid == resource.data.yanitlayanUid
+          && request.resource.data.anketId == resource.data.anketId
+          && resource.data.tur != 'onay';
+        allow delete: if superAdmin() || kadmin(kid);
+      }
+
+      // -----------------------------------------------------
+      //  ajandaOgeleri (Ajanda Modulu — yonetici + ogretmen)
+      // -----------------------------------------------------
+      match /ajandaOgeleri/{id} {
+        allow read: if superAdmin() || kadmin(kid) || kogretmen(kid);
+        allow write: if (superAdmin() || kadmin(kid)) && yazabilir(kid);
+      }
+
+      // -----------------------------------------------------
+      //  belgePaylasimlari (Ogrenciye ozel dokuman — Google Drive)
+      // -----------------------------------------------------
+      match /belgePaylasimlari/{id} {
+        allow read: if superAdmin() || kadmin(kid)
+          || (kogretmen(kid) && sinifOgretmeni(kid, resource.data.sinifId))
+          || ogrenciVelisi(kid, resource.data.ogrenciId);
+        allow create: if yazabilir(kid)
+          && request.resource.data.yukleyenUid == uid()
+          && (kadmin(kid)
+              || (kogretmen(kid) && sinifOgretmeni(kid, request.resource.data.sinifId)));
+        allow update, delete: if yazabilir(kid)
+          && (kadmin(kid) || resource.data.yukleyenUid == uid());
+      }
+
+      // -----------------------------------------------------
       //  islemKayitlari (KVKK denetim gunlugu)
       // -----------------------------------------------------
       match /islemKayitlari/{id} {

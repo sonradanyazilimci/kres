@@ -83,3 +83,49 @@ export async function driveYukle(file, { url, sir = "", klasor = "genel", ad } =
     webViewLink: sonuc.webViewLink || `https://drive.google.com/file/d/${sonuc.id}/view`
   };
 }
+
+// ---------- Herhangi bir dosyayı (PDF/Word/görsel) Drive'a yükle ----------
+// Küçültme YAPILMAZ; dosya olduğu gibi gönderilir. 12 MB sınırı Apps Script'te.
+export function dosyayiBase64Yap(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve({
+      base64: String(r.result).split(",")[1],
+      tur: file.type || "application/octet-stream"
+    });
+    r.onerror = () => reject(new Error("Dosya okunamadı."));
+    r.readAsDataURL(file);
+  });
+}
+
+export async function driveDosyaYukle(file, { url, sir = "", klasor = "belge", ad } = {}) {
+  if (!url || !/^https:\/\/script\.google\.com\/.*\/exec$/.test(url)) {
+    throw new Error("Bu kreş için Google Drive servisi ayarlanmamış. Yönetici → Ayarlar bölümünden bağlayın.");
+  }
+  if (file.size > 12 * 1024 * 1024) {
+    throw new Error("Dosya 12 MB sınırını aşıyor.");
+  }
+  const { base64, tur } = await dosyayiBase64Yap(file);
+  const uzanti = (file.name.match(/\.\w+$/) || [""])[0];
+  const dosyaAdi = ((ad || file.name || "belge").replace(/\.\w+$/, "").replace(/[^\w.\-]+/g, "_").slice(0, 90)) + uzanti;
+
+  const govde = JSON.stringify({ sir: sir || "", klasor, ad: dosyaAdi, tur, base64 });
+
+  let yanit;
+  try {
+    yanit = await fetch(url, { method: "POST", body: govde });
+  } catch (e) {
+    throw new Error("Drive servisine ulaşılamadı. Dağıtımı ve erişim ayarını (‘Herkes’) kontrol edin.");
+  }
+  let sonuc;
+  try { sonuc = await yanit.json(); }
+  catch { throw new Error("Drive servisinden geçersiz yanıt alındı."); }
+  if (!sonuc.ok) throw new Error(sonuc.hata || "Drive yükleme başarısız.");
+
+  return {
+    id: sonuc.id,
+    dosyaAdi,
+    webViewLink: sonuc.webViewLink || `https://drive.google.com/file/d/${sonuc.id}/view`,
+    indirLink: `https://drive.google.com/uc?export=download&id=${sonuc.id}`
+  };
+}
