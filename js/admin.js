@@ -15,8 +15,8 @@ import { db, firebaseConfig } from "./firebase-config.js";
 import { driveYukle } from "./drive-upload.js";
 import { sayfaKorumasi, cikisYap } from "./auth.js";
 import {
-  kol, bel, aktifKresId, aktifKres, kresAktifMi, islemKaydet,
-  denemeBandiGoster
+  kol, bel, aktifKresId, aktifKres, kresAktifMi, onayBekliyorMu, islemKaydet,
+  denemeBandiGoster, kilitEkraniGoster
 } from "./kres.js";
 import {
   $, el, escapeHtml, toast, emptyState, tabloBos, openModal, closeModal,
@@ -39,7 +39,7 @@ const durum = {
 
 function yazmaKontrol() {
   if (!yazma) {
-    toast("Deneme süreniz doldu. Yeni kayıt/düzenleme yapılamıyor.", "warning", 5000);
+    toast("Erişim süreniz doldu ya da abonelik pasif. Yeni kayıt/düzenleme yapılamıyor.", "warning", 5000);
     return false;
   }
   return true;
@@ -51,7 +51,8 @@ profil = baglam.profil || { uid: baglam.uid, ad: "Yönetici", soyad: "", email: 
 yazma = baglam.aktif;
 kullaniciRozeti(profil);
 kurCikis(() => cikisYap());
-if (aktifKres()?.plan === "deneme") denemeBandiGoster(aktifKres());
+if (onayBekliyorMu(aktifKres())) kilitEkraniGoster(aktifKres());  // başvuru inceleniyor
+else denemeBandiGoster(aktifKres());
 
 const nav = kurPanelGezinme({
   "genel-bakis": "Genel Bakış",
@@ -757,9 +758,10 @@ async function ayarlariDoldur() {
   // Abonelik özeti
   const ozet = $("#abonelik-ozet");
   const plan = k.plan === "deneme" ? "Deneme" : (k.plan || "-");
-  const bitis = k.denemeBitis?.toDate ? formatDateTime(k.denemeBitis) : "-";
-  ozet.innerHTML = `Plan: <strong>${escapeHtml(plan)}</strong> · Durum: <strong>${kresAktifMi(k) ? "Aktif" : "Pasif"}</strong>`
-    + (k.plan === "deneme" ? ` · Deneme bitişi: ${escapeHtml(bitis)}` : "");
+  const durumMetin = onayBekliyorMu(k) ? "Onay Bekliyor" : (kresAktifMi(k) ? "Aktif" : "Pasif");
+  const bitis = k.bitisTarihi?.toDate ? formatDateTime(k.bitisTarihi) : "Süresiz";
+  ozet.innerHTML = `Plan: <strong>${escapeHtml(plan)}</strong> · Durum: <strong>${escapeHtml(durumMetin)}</strong>`
+    + (onayBekliyorMu(k) ? "" : ` · Erişim bitişi: ${escapeHtml(bitis)}`);
 
   $("#kresAd").value = k.ad || "";
   $("#kresTelefon").value = k.telefon || "";

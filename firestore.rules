@@ -36,9 +36,12 @@ service cloud.firestore {
     function kres(kid) {
       return get(/databases/$(database)/documents/kresler/$(kid)).data;
     }
+    function kresBitis(kid) {
+      return kres(kid).get('bitisTarihi', null);
+    }
     function kresAktif(kid) {
       return kres(kid).durum == 'aktif'
-        && (kres(kid).plan != 'deneme' || kres(kid).denemeBitis > request.time);
+        && (kresBitis(kid) == null || kresBitis(kid) > request.time);
     }
     // Yazma izni: super-admin her zaman; kres uyesi ancak kres aktifse.
     function yazabilir(kid) { return superAdmin() || kresAktif(kid); }
@@ -92,17 +95,17 @@ service cloud.firestore {
     // =========================================================
     match /kresler/{kid} {
       allow read: if uyesi(kid) || superAdmin();
-      // Super-admin serbest; self-signup: sahibi kendisi olan bir DENEME kresi.
+      // Super-admin serbest; self-signup: sahibi kendisi, ONAY BEKLEYEN başvuru.
       allow create: if superAdmin() || (girisli()
         && request.resource.data.sahibiUid == uid()
-        && request.resource.data.durum == 'aktif'
+        && request.resource.data.durum == 'onayBekliyor'
         && request.resource.data.plan == 'deneme');
       // Yonetici yalnizca ayar alanlarini degistirebilir; abonelik alanlari sabit.
       allow update: if superAdmin() || (
         kadmin(kid)
         && request.resource.data.durum == resource.data.durum
         && request.resource.data.plan == resource.data.plan
-        && request.resource.data.denemeBitis == resource.data.denemeBitis
+        && request.resource.data.get('bitisTarihi', null) == resource.data.get('bitisTarihi', null)
         && request.resource.data.sahibiUid == resource.data.sahibiUid
       );
       allow delete: if superAdmin();

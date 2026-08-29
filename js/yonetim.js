@@ -16,7 +16,7 @@ import {
 
 import { auth, db, firebaseConfig } from "./firebase-config.js";
 import { sayfaKorumasi, cikisYap } from "./auth.js";
-import { kresAktifMi } from "./kres.js";
+import { kresAktifMi, onayBekliyorMu, kalanGun } from "./kres.js";
 import {
   $, el, escapeHtml, toast, tabloBos, openModal, closeModal, confirmDialog,
   formData, formatDate, firebaseHata, kurCikis
@@ -83,12 +83,14 @@ function kresAdi(id) { return kresler.find((k) => k.id === id)?.ad || "—"; }
 // =============================================================
 function render() {
   const aktif = kresler.filter((k) => kresAktifMi(k)).length;
+  const bekleyen = kresler.filter((k) => onayBekliyorMu(k)).length;
   const say = (r) => kullanicilar.filter((u) => u.rol === r).length;
   $("#ozet").innerHTML = `
     <div class="stat-izgara">
       ${statKart("🏫", kresler.length, "Kreş")}
       ${statKart("✅", aktif, "Aktif")}
-      ${statKart("⏸️", kresler.length - aktif, "Pasif")}
+      ${statKart("⏳", bekleyen, "Onay Bekleyen")}
+      ${statKart("⏸️", kresler.length - aktif - bekleyen, "Pasif")}
       ${statKart("🧑‍💼", say("admin"), "Yönetici")}
       ${statKart("👩‍🏫", say("ogretmen"), "Öğretmen")}
       ${statKart("👪", say("veli"), "Veli")}
@@ -96,29 +98,38 @@ function render() {
 
   const t = $("#kres-tablo");
   if (!kresler.length) { tabloBos(t, "Henüz kreş yok"); return; }
+  // Onay bekleyenler en üstte
+  const sirali = [...kresler].sort((a, b) => (onayBekliyorMu(b) ? 1 : 0) - (onayBekliyorMu(a) ? 1 : 0));
   t.innerHTML = `
-    <thead><tr><th>Kreş</th><th>Sahibi</th><th>Plan</th><th>Durum</th><th>Deneme Bitişi</th><th>İşlemler</th></tr></thead>
-    <tbody>${kresler.map((k) => {
+    <thead><tr><th>Kreş</th><th>Sahibi</th><th>Plan</th><th>Durum</th><th>Erişim Bitişi</th><th>İşlemler</th></tr></thead>
+    <tbody>${sirali.map((k) => {
       const a = kresAktifMi(k);
+      const bek = onayBekliyorMu(k);
+      const kg = kalanGun(k);
+      const durumRozet = bek ? "uyari" : a ? "basari" : "hata";
+      const durumMetin = bek ? "Onay Bekliyor" : a ? "Aktif" : "Pasif";
+      const bitisMetin = k.bitisTarihi?.toDate ? formatDate(k.bitisTarihi) + (a && kg != null ? ` (${kg}g)` : "") : "Süresiz";
       return `<tr>
         <td><strong>${escapeHtml(k.ad || "-")}</strong><br><span class="soluk">${escapeHtml(k.id)}</span></td>
         <td class="soluk">${escapeHtml(emailByUid.get(k.sahibiUid) || k.sahibiUid || "-")}</td>
         <td>${escapeHtml(k.plan || "-")}</td>
-        <td><span class="rozet rozet--${a ? "basari" : "hata"}">${a ? "Aktif" : "Pasif"}</span></td>
-        <td>${k.denemeBitis?.toDate ? formatDate(k.denemeBitis) : "-"}</td>
+        <td><span class="rozet rozet--${durumRozet}">${durumMetin}</span></td>
+        <td>${bek ? "-" : bitisMetin}</td>
         <td class="tablo-islem">
+          ${bek ? `<button class="btn btn--primary btn--sm" data-onayla="${k.id}">Onayla</button>` : ""}
           <button class="btn btn--ghost btn--sm" data-detay="${k.id}">Detay</button>
-          <button class="btn btn--secondary btn--sm" data-abonelik="${k.id}">Abonelik</button>
-          <button class="btn btn--ghost btn--sm" data-uzat="${k.id}">+30g</button>
-          <button class="btn ${a ? "btn--danger" : "btn--primary"} btn--sm" data-durum="${k.id}">${a ? "Pasif" : "Aktif"}</button>
+          <button class="btn btn--secondary btn--sm" data-abonelik="${k.id}">Abonelik/Süre</button>
+          ${!bek ? `<button class="btn btn--ghost btn--sm" data-uzat="${k.id}">+30g</button>` : ""}
+          ${!bek ? `<button class="btn ${a ? "btn--danger" : "btn--primary"} btn--sm" data-durum="${k.id}">${a ? "Pasif" : "Aktif"}</button>` : ""}
           <button class="btn btn--danger btn--sm" data-sil="${k.id}">Sil</button>
         </td>
       </tr>`;
     }).join("")}</tbody>`;
 
+  t.querySelectorAll("[data-onayla]").forEach((b) => b.addEventListener("click", () => sureModal(b.dataset.onayla, true)));
   t.querySelectorAll("[data-detay]").forEach((b) => b.addEventListener("click", () => kresDetay(b.dataset.detay)));
-  t.querySelectorAll("[data-abonelik]").forEach((b) => b.addEventListener("click", () => abonelikBaslat(b.dataset.abonelik)));
-  t.querySelectorAll("[data-uzat]").forEach((b) => b.addEventListener("click", () => denemeUzat(b.dataset.uzat)));
+  t.querySelectorAll("[data-abonelik]").forEach((b) => b.addEventListener("click", () => sureModal(b.dataset.abonelik, false)));
+  t.querySelectorAll("[data-uzat]").forEach((b) => b.addEventListener("click", () => sureUzat(b.dataset.uzat, 30)));
   t.querySelectorAll("[data-durum]").forEach((b) => b.addEventListener("click", () => durumCevir(b.dataset.durum)));
   t.querySelectorAll("[data-sil]").forEach((b) => b.addEventListener("click", () => kresSil(b.dataset.sil)));
 }
@@ -136,8 +147,10 @@ function yeniKresFormu() {
       el("div", { class: "form-grup" }, el("label", {}, "Telefon"), el("input", { name: "telefon", type: "tel" })),
       el("div", { class: "form-grup" }, el("label", {}, "Plan"),
         el("select", { name: "plan" },
-          el("option", { value: "deneme" }, "Deneme (14 gün)"),
-          el("option", { value: "abonelik" }, "Abonelik (aktif)")))),
+          el("option", { value: "deneme" }, "Deneme"),
+          el("option", { value: "abonelik" }, "Abonelik")))),
+    el("div", { class: "form-grup" }, el("label", {}, "Süre (gün, 0 = süresiz)"),
+      el("input", { name: "gun", type: "number", min: "0", value: "365" })),
     el("hr", { style: "border:none;border-top:1px solid var(--kenar);margin:14px 0" }),
     el("p", { class: "form-yardim" }, "Kreş yöneticisi (admin) hesabı:"),
     el("div", { class: "form-satir" },
@@ -156,12 +169,11 @@ function yeniKresFormu() {
     const v = formData(form);
     try {
       const uid = await authHesabiOlustur(v.yemail, v.ysifre);
+      const gun = Math.max(0, parseInt(v.gun, 10) || 0);
       const kresRef = await addDoc(collection(db, "kresler"), {
         ad: v.ad, telefon: v.telefon || "", sahibiUid: uid,
         plan: v.plan, durum: "aktif",
-        denemeBitis: v.plan === "deneme"
-          ? Timestamp.fromMillis(Date.now() + 14 * 86400000)
-          : serverTimestamp(),
+        bitisTarihi: gun === 0 ? null : Timestamp.fromMillis(Date.now() + gun * 86400000),
         marka: { renk: "#ff8a5c" },
         kvkkOnay: { surum: "1.0", tarih: serverTimestamp(), tarayici: "superadmin" },
         olusturma: serverTimestamp()
@@ -291,27 +303,59 @@ async function kullaniciSil(kid, uid) {
 }
 
 // =============================================================
-//  ABONELİK
+//  ABONELİK / SÜRE
 // =============================================================
-async function abonelikBaslat(id) {
+// Plan + gün sayısı seç → durum "aktif", bitisTarihi = now + gün (0 = süresiz)
+async function sureModal(id, onay) {
   const k = kresler.find((x) => x.id === id);
-  if (!await confirmDialog(`"${k.ad}" ücretli aboneliğe geçsin mi?`, { onayMetni: "Evet", tehlike: false })) return;
-  try {
-    await updateDoc(doc(db, "kresler", id), { plan: "abonelik", durum: "aktif" });
-    toast("Abonelik başlatıldı.", "success"); yukle();
-  } catch (err) { toast(firebaseHata(err), "error"); }
+  const form = el("form", {},
+    el("p", { class: "soluk mb-1" }, onay
+      ? `"${k.ad}" başvurusunu onaylayıp erişim veriyorsunuz.`
+      : `"${k.ad}" için plan ve süreyi belirleyin.`),
+    el("div", { class: "form-satir" },
+      el("div", { class: "form-grup" }, el("label", {}, "Plan"),
+        el("select", { name: "plan" },
+          el("option", { value: "deneme" }, "Deneme"),
+          el("option", { value: "abonelik" }, "Abonelik"))),
+      el("div", { class: "form-grup" }, el("label", {}, "Süre (gün)"),
+        el("input", { name: "gun", type: "number", min: "0", value: onay ? "14" : "365" }))),
+    el("p", { class: "form-yardim" }, "0 gün = süresiz erişim (bitiş tarihi yok)."),
+    el("button", { class: "btn btn--primary btn--block mt-1", type: "submit" },
+      onay ? "Onayla ve Erişim Ver" : "Uygula")
+  );
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector("button[type=submit]");
+    btn.disabled = true;
+    const v = formData(form);
+    const gun = Math.max(0, parseInt(v.gun, 10) || 0);
+    try {
+      await updateDoc(doc(db, "kresler", id), {
+        plan: v.plan,
+        durum: "aktif",
+        bitisTarihi: gun === 0 ? null : Timestamp.fromMillis(Date.now() + gun * 86400000)
+      });
+      closeModal();
+      toast(onay ? "Kreş onaylandı, erişim verildi." : "Güncellendi.", "success");
+      yukle();
+    } catch (err) { toast(firebaseHata(err), "error"); btn.disabled = false; }
+  });
+  openModal(onay ? "Kreşi Onayla" : "Abonelik / Süre", form);
 }
-async function denemeUzat(id) {
+
+// Hızlı uzatma: mevcut bitişe (yoksa şimdiye) gün ekle
+async function sureUzat(id, gun) {
   const k = kresler.find((x) => x.id === id);
-  const mevcut = k.denemeBitis?.toMillis?.() ?? Date.now();
+  const taban = Math.max(k.bitisTarihi?.toMillis?.() ?? 0, Date.now());
   try {
     await updateDoc(doc(db, "kresler", id), {
-      denemeBitis: Timestamp.fromMillis(Math.max(mevcut, Date.now()) + 30 * 86400000),
-      durum: "aktif", plan: "deneme"
+      durum: "aktif",
+      bitisTarihi: Timestamp.fromMillis(taban + gun * 86400000)
     });
-    toast("Deneme 30 gün uzatıldı.", "success"); yukle();
+    toast(`Erişim ${gun} gün uzatıldı.`, "success"); yukle();
   } catch (err) { toast(firebaseHata(err), "error"); }
 }
+
 async function durumCevir(id) {
   const k = kresler.find((x) => x.id === id);
   const yeni = k.durum === "aktif" ? "pasif" : "aktif";

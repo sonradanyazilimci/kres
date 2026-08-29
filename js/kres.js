@@ -22,19 +22,25 @@ export function aktifKresId() { return _kresId; }
 export function aktifKres() { return _kres; }
 
 // ---------- Abonelik / deneme durumu ----------
+// durum: "onayBekliyor" | "aktif" | "pasif"
+// plan : "deneme" | "abonelik"
+// bitisTarihi: Timestamp | (yok/null => süresiz)
 export function kresAktifMi(kres = _kres) {
   if (!kres) return false;
   if (kres.durum !== "aktif") return false;
-  if (kres.plan === "deneme") {
-    const bitis = kres.denemeBitis?.toMillis?.() ?? 0;
-    return bitis > Date.now();
-  }
-  return true;
+  const bitis = kres.bitisTarihi?.toMillis?.();
+  if (bitis == null) return true;            // süresiz erişim
+  return bitis > Date.now();
 }
 
-export function denemeKalanGun(kres = _kres) {
-  if (!kres || kres.plan !== "deneme") return null;
-  const bitis = kres.denemeBitis?.toMillis?.() ?? 0;
+export function onayBekliyorMu(kres = _kres) {
+  return !!kres && kres.durum === "onayBekliyor";
+}
+
+// Erişim bitişine kalan gün (süresizse null)
+export function kalanGun(kres = _kres) {
+  const bitis = kres?.bitisTarihi?.toMillis?.();
+  if (bitis == null) return null;
   return Math.ceil((bitis - Date.now()) / 86400000);
 }
 
@@ -77,10 +83,10 @@ export async function islemKaydet(uid, islem, detay = {}) {
   } catch { /* günlük yazılamazsa akışı bozma */ }
 }
 
-// ---------- Abonelik kilit ekranı (öğretmen/veli için tam ekran) ----------
+// ---------- Tam ekran kilit (öğretmen/veli + onay bekleyen yönetici) ----------
 export function kilitEkraniGoster(kres) {
-  const mevcut = document.getElementById("abonelik-kilit");
-  if (mevcut) return;
+  if (document.getElementById("abonelik-kilit")) return;
+  const bekliyor = onayBekliyorMu(kres);
   const kap = document.createElement("div");
   kap.id = "abonelik-kilit";
   kap.style.cssText = [
@@ -88,12 +94,13 @@ export function kilitEkraniGoster(kres) {
     "padding:24px", "background:rgba(45,35,25,.55)", "backdrop-filter:blur(3px)"
   ].join(";");
   kap.innerHTML = `
-    <div style="max-width:420px;background:#fff;border-radius:22px;padding:32px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.25)">
-      <div style="font-size:3rem">🔒</div>
-      <h2 style="margin:8px 0 6px">Aboneliğiniz pasif</h2>
+    <div style="max-width:440px;background:#fff;border-radius:22px;padding:32px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+      <div style="font-size:3rem">${bekliyor ? "⏳" : "🔒"}</div>
+      <h2 style="margin:8px 0 6px">${bekliyor ? "Başvurunuz inceleniyor" : "Aboneliğiniz pasif"}</h2>
       <p style="color:#857f78;line-height:1.6">
-        ${kres?.ad ? "<strong>" + kres.ad + "</strong> " : ""}kreşinin deneme süresi doldu ya da aboneliği pasif durumda.
-        Erişimin devam etmesi için kreş yöneticisiyle görüşün.
+        ${kres?.ad ? "<strong>" + kres.ad + "</strong> " : ""}${bekliyor
+          ? "kreş kaydınız alındı. Sağlayıcı onayından sonra panelinize erişebileceksiniz. Onaylandığında bu sayfayı yenileyin."
+          : "kreşinin erişim süresi doldu ya da aboneliği pasif. Devam için sağlayıcı ile görüşün."}
       </p>
       <button id="abonelik-cikis" style="margin-top:16px;background:#ff8a5c;color:#fff;border:none;font-weight:800;padding:12px 22px;border-radius:999px;cursor:pointer">Çıkış Yap</button>
     </div>`;
@@ -104,11 +111,25 @@ export function kilitEkraniGoster(kres) {
   });
 }
 
-// ---------- Abonelik uyarı bandı (yönetici için, üstte) ----------
+// ---------- Yöneticiye üstte uyarı bandı ----------
 export function denemeBandiGoster(kres) {
-  const kalan = denemeKalanGun(kres);
-  if (kalan === null) return;
+  if (!kres || onayBekliyorMu(kres)) return;
+  const kalan = kalanGun(kres);
+  if (kalan == null) return;                 // süresiz -> banner yok
   const aktif = kresAktifMi(kres);
+  const deneme = kres.plan === "deneme";
+  let metin;
+  if (!aktif) {
+    metin = deneme
+      ? "Deneme süreniz doldu. Panel salt-okunur; kayıt/düzenleme yapılamaz."
+      : "Aboneliğiniz sona erdi. Panel salt-okunur; yenilemek için sağlayıcıyla görüşün.";
+  } else if (deneme) {
+    metin = `Deneme sürümü — ${kalan} gün kaldı. Kesintisiz devam için abonelik başlatın.`;
+  } else if (kalan <= 7) {
+    metin = `Aboneliğiniz ${kalan} gün sonra bitiyor. Yenilemek için sağlayıcıyla görüşün.`;
+  } else {
+    return;                                  // aboneliğe daha çok var -> banner yok
+  }
   const bant = document.createElement("div");
   bant.className = "deneme-bandi";
   bant.style.cssText = [
@@ -116,8 +137,6 @@ export function denemeBandiGoster(kres) {
     "font-weight:700", "font-size:.9rem",
     aktif ? "background:#fdf1dd;color:#9a6b1e" : "background:#fce8e4;color:#b23b28"
   ].join(";");
-  bant.textContent = aktif
-    ? `Deneme sürümü — ${kalan} gün kaldı. Kesintisiz devam için abonelik başlatın.`
-    : "Deneme süreniz doldu. Panel salt-okunur modda; yeni kayıt/düzenleme yapılamaz.";
+  bant.textContent = metin;
   document.body.prepend(bant);
 }
