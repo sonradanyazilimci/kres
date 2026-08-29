@@ -19,7 +19,7 @@ Roller: **superadmin** (sağlayıcı = siz) · **admin** (kreş yöneticisi) ·
 | `admin.html` / `js/admin.js` | Kreş yönetici paneli (Ayarlar dahil) |
 | `ogretmen.html` / `js/ogretmen.js` | Öğretmen paneli |
 | `veli.html` / `js/veli.js` | Veli paneli (KVKK açık rıza kapısı) |
-| `yonetim.html` / `js/yonetim.js` | **Sağlayıcı (süper-admin) paneli** — tüm kreşler, abonelik |
+| `yonetim.html` / `js/yonetim.js` | **Sağlayıcı (süper-admin) paneli** — sistem özeti, kreş+yönetici oluşturma, her kreşe personel ekleme, şifre sıfırlama, kullanıcı/kreş silme, abonelik, süper-admin ekleme |
 | `js/kres.js` | Kiracı bağlamı: kresId, abonelik durumu, yol yardımcıları, denetim günlüğü |
 | `js/auth.js` | Giriş, dizin okuma (`/kullaniciDizini`), role göre yönlendirme |
 | `js/drive-upload.js` | Fotoğrafı kreşin kendi Apps Script /exec adresine yükler |
@@ -29,6 +29,7 @@ Roller: **superadmin** (sağlayıcı = siz) · **admin** (kreş yöneticisi) ·
 | `scripts/goc.mjs` | Eski düz koleksiyonları çok-kiracılı yapıya taşıyan tek seferlik göç |
 | `scripts/yedekle.mjs` · `.github/workflows/yedek.yml` | Yedekleme (Spark planda çalışır) |
 | `google-apps-script/Kod.gs` | Her kreşin dağıttığı Drive yükleme servisi |
+| `google-apps-script/AuthAdmin.gs` | Vendor'ın dağıttığı Auth yönetim servisi (şifre belirleme, hesap silme) |
 | `manifest.webmanifest` · `sw.js` · `icons/` | PWA (telefona kurulabilir uygulama) |
 
 ---
@@ -82,6 +83,37 @@ veya Firebase Console → Firestore → **Rules** → `firestore.rules` içeriğ
 Firebase Console → Firestore → Data → **`superAdmins`** koleksiyonu →
 doküman kimliği = **sizin Auth UID'niz** (Authentication → Users), tek alan `not: "vendor"`.
 Artık o hesap `yonetim.html`'e girer.
+
+**Süper-admin yetkileri** (`yonetim.html`):
+- Sistem özeti (kreş / aktif / pasif / yönetici / öğretmen / veli sayıları)
+- **+ Yeni Kreş** → kreş + yönetici hesabı oluşturur, şifreyi ekranda gösterir + şifre belirleme e-postası atar
+- Kreş **Detay** → o kreşin tüm kullanıcıları; her biri için **Şifre sıfırla** (e-posta) / **Sil**; **+ Kullanıcı Ekle** (her rol)
+- **Abonelik başlat** / **+30 gün** / **Pasif↔Aktif**
+- **Kreş Sil** → tüm alt-koleksiyonlar + dizin kayıtları cascade silinir (kreş adı yazılarak onaylanır)
+- **+ Süper-admin** → başka bir UID'yi süper-admin yapar
+- Güvenlik kuralları: süper-admin **tüm sistemi okuyabilir** ve her koleksiyona yazabilir.
+
+**Doğrudan şifre belirleme + Auth hesabı silme** (`AuthAdmin.gs`)
+
+Firebase istemci SDK'sı başka kullanıcının şifresini değiştiremez / hesabını
+silemez. Bunun için vendor tarafında bir Apps Script servisi çalışır:
+
+1. `google-apps-script/AuthAdmin.gs`'i script.google.com'da yeni projeye yapıştır.
+2. Proje Ayarları → **Betik özellikleri**:
+   - `PROJE_ID` = `kres-245e9`
+   - `API_KEY` = `firebaseConfig.apiKey` değeri
+   - `SA_JSON` = **servis hesabı anahtarının tam JSON'u**
+     (Console → Proje Ayarları → Hizmet hesapları → "Yeni özel anahtar oluştur")
+3. **Dağıt → Web uygulaması** (Yürüten: Ben · Erişim: Herkes) → izinleri onayla.
+4. Çıkan `/exec` adresini `js/firebase-config.js` → `AUTH_ADMIN_URL` alanına yaz.
+
+> **Güvenlik:** Paylaşılan sır yoktur. İstek yalnızca geçerli bir Firebase
+> kimlik jetonuyla gelir ve jetonun sahibi `/superAdmins/{uid}` içinde olmak
+> zorundadır. Servis hesabı anahtarı yalnızca Apps Script sunucusunda tutulur.
+
+`AUTH_ADMIN_URL` **boşsa** panel otomatik olarak "şifre belirleme e-postası
+gönder" davranışına döner; Auth hesabı silme ise manuel kalır
+(**Authentication → Users**).
 
 ### 4. (İlk kez) Demo kreş / göç
 - **Yeni sistemde:** demo verisi tarayıcıdan süper-admin oturumuyla oluşturulur ya da

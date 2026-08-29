@@ -22,3 +22,9 @@ export const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Süper-admin Auth yönetimi (şifre belirleme / hesap silme).
+// Vendor tarafında dağıtılan Apps Script: google-apps-script/AuthAdmin.gs
+// (Boş bırakılırsa süper-admin panelde "şifre belirle" yerine e-posta ile
+//  sıfırlama gösterilir.)
+export const AUTH_ADMIN_URL = "";

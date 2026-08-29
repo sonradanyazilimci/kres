@@ -50,6 +50,12 @@ service cloud.firestore {
       return uid() in get(/databases/$(database)/documents/kresler/$(kid)/ogrenciler/$(ogrenciId)).data.veliIds;
     }
 
+    // Super-admin tum sistemi OKUYABILIR (kok koleksiyonlar dahil).
+    // Yazma yetkileri asagida her koleksiyonda ayrica tanimli.
+    match /{yol=**} {
+      allow read: if superAdmin();
+    }
+
     // =========================================================
     //  Saglayici
     // =========================================================
@@ -206,23 +212,24 @@ service cloud.firestore {
       // -----------------------------------------------------
       match /fotograflar/{id} {
         allow read: if uyesi(kid) || superAdmin();
-        allow create: if yazabilir(kid)
+        allow create: if superAdmin() || (yazabilir(kid)
           && request.resource.data.yukleyenId == uid()
           && (kadmin(kid)
               || (kogretmen(kid)
                   && request.resource.data.hedef != 'okul'
-                  && sinifOgretmeni(kid, request.resource.data.hedef)));
-        allow update, delete: if yazabilir(kid)
-          && (kadmin(kid) || resource.data.yukleyenId == uid());
+                  && sinifOgretmeni(kid, request.resource.data.hedef))));
+        allow update, delete: if superAdmin()
+          || (yazabilir(kid) && (kadmin(kid) || resource.data.yukleyenId == uid()));
       }
 
       // -----------------------------------------------------
-      //  islemKayitlari (KVKK denetim gunlugu — append-only)
+      //  islemKayitlari (KVKK denetim gunlugu)
       // -----------------------------------------------------
       match /islemKayitlari/{id} {
         allow read: if superAdmin() || kadmin(kid);
-        allow create: if uyesi(kid) && request.resource.data.kim == uid();
-        allow update, delete: if false;
+        allow create: if superAdmin() || (uyesi(kid) && request.resource.data.kim == uid());
+        allow update: if false;              // degistirilemez
+        allow delete: if superAdmin();       // kres silme / KVKK imha
       }
     }
   }

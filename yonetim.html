@@ -11,7 +11,7 @@
   <meta name="theme-color" content="#ff8a5c" />
 </head>
 <body>
-  <div class="panel-icerik" style="max-width:1100px;margin:0 auto">
+  <div class="panel-icerik" style="max-width:1180px;margin:0 auto">
     <div class="panel-ust">
       <h1>Sağlayıcı Paneli</h1>
       <div class="kullanici-rozet">
@@ -21,8 +21,16 @@
       </div>
     </div>
 
+    <div id="ozet" class="mb-2"></div>
+
     <div class="kutu">
-      <div class="kutu__ust"><h2>Kreşler</h2><span class="soluk" id="ozet"></span></div>
+      <div class="kutu__ust">
+        <h2>Kreşler</h2>
+        <div class="satir-arasi">
+          <button class="btn btn--ghost btn--sm" id="superAdminBtn">+ Süper-admin</button>
+          <button class="btn btn--primary btn--sm" id="yeniKresBtn">+ Yeni Kreş</button>
+        </div>
+      </div>
       <div class="tablo-sar"><table class="veri-tablo" id="kres-tablo"></table></div>
     </div>
   </div>
