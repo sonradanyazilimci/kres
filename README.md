@@ -16,13 +16,16 @@ Roller: **superadmin** (sağlayıcı = siz) · **admin** (kreş yöneticisi) ·
 |---|---|
 | `index.html` | Tanıtım sitesi + giriş modalı + "Kreşinizi Kaydedin"; metinler `/site/anasayfa`'dan panelle güncellenebilir |
 | `kayit.html` / `js/kayit.js` | Kreş self-servis kaydı → sağlayıcı onay kuyruğu |
-| `admin.html` / `js/admin.js` | Kreş yönetici paneli — kullanıcı/sınıf/öğrenci, duyuru, tarih bazlı galeri, **aidat toplu tahakkuku + ödeme onayı**, **öğretmen talepleri**, **izin/belge gönderimi + veli onay takibi**, Ayarlar |
-| `ogretmen.html` / `js/ogretmen.js` | Öğretmen paneli — Sınıfım mini panosu, emoji'li günlük rapor çipleri + canlı önizleme, yoklamada "Tümü geldi", tarih bazlı galeri, **yönetime istek formu** |
-| `veli.html` / `js/veli.js` | Veli paneli (KVKK açık rıza kapısı); günlük rapor emoji kartı, tarih bazlı galeri, **"Ödedim" bildirimi**, **izin/belge onay-ret** |
-| `yonetim.html` / `js/yonetim.js` | **Sağlayıcı (süper-admin) paneli** — sistem özeti + toplam tahsilat, kreş onayı, istediğin gün abonelik, abonelik tahsilat defteri, anasayfa içerik editörü, kreş+yönetici oluşturma, personel ekleme, şifre sıfırlama, kullanıcı/kreş silme |
+| `admin.html` / `js/admin.js` | Kreş yönetici paneli — kullanıcı/sınıf/öğrenci, duyuru, tarih bazlı galeri, aidat toplu tahakkuku + ödeme onayı, **tahsilat özeti + borçlu listesi**, **aidat makbuzu (yazdır/PDF)**, öğretmen talepleri, izin/belge, **haftalık yemek listesi + sınıf programı**, **yıl sonu sınıf terfi + toplu veli mesajı**, Ayarlar |
+| `ogretmen.html` / `js/ogretmen.js` | Öğretmen paneli — Sınıfım mini panosu, emoji'li günlük rapor çipleri + canlı önizleme, **son raporu kopyala + hazır kalıplar**, **toplu sınıf raporu**, **gözlem günlüğü** (veliye kapalı), yoklamada "Tümü geldi", tarih bazlı galeri, yönetime istek formu |
+| `veli.html` / `js/veli.js` | Veli paneli (KVKK açık rıza kapısı); günlük rapor emoji kartı, **aylık gelişim özeti (grafik)**, tarih bazlı galeri, yemek listesi + sınıf programı görüntüleme, "Ödedim" bildirimi, devamsızlık ön bildirimi, izin/belge onay-ret |
+| `yonetim.html` / `js/yonetim.js` | **Sağlayıcı (süper-admin) paneli** — sistem özeti + toplam tahsilat, **aboneliği yakında bitecek kreşler**, kreş onayı, istediğin gün abonelik, abonelik tahsilat defteri, **kullanım metrikleri (son aktivite)**, anasayfa içerik editörü, sistem duyurusu, kreş+yönetici oluşturma, personel ekleme, kullanıcı/kreş silme |
 | `js/kres.js` | Kiracı bağlamı: kresId, abonelik durumu, yol yardımcıları, denetim günlüğü |
 | `js/auth.js` | Giriş, dizin okuma (`/kullaniciDizini`), role göre yönlendirme |
 | `js/site-icerik.js` | `/site/anasayfa` içeriğini okur/yazar + index.html'e uygular |
+| `js/bildirim.js` | Uygulama içi bildirim çanı (her panelde okunmamış sayacı + açılır liste) |
+| `js/sistem-duyuru.js` | Sağlayıcı sistem duyurularını okur + her sayfaya kapatılabilir bant olarak ekler |
+| `js/tema.js` | Açık / koyu tema geçişi (localStorage'da tutulur, her panele düğme ekler) |
 | `js/drive-upload.js` | Fotoğrafı kreşin kendi Apps Script /exec adresine yükler |
 | `js/utils.js` · `js/pwa.js` | Yardımcılar (ortak `raporKart` dahil) · PWA kaydı |
 | `aydinlatma-metni.html` · `kvkk-politikasi.html` · `veri-sozlesmesi.html` | **KVKK metin şablonları** (hukukçuya inceletin) |
@@ -47,6 +50,12 @@ Roller: **superadmin** (sağlayıcı = siz) · **admin** (kreş yöneticisi) ·
 /kresler/{kresId}/ogrenciler/{id}          → { ad, soyad, dogumTarihi, sinifId, veliIds[], fotoUrl, fotoDriveId, alerjiler, notlar }
 /kresler/{kresId}/yoklamalar/{ogr_tarih}   → { ogrenciId, sinifId, tarih, durum, ogretmenId }
 /kresler/{kresId}/gunlukRaporlar/{ogr_tarih}
+/kresler/{kresId}/gozlemler/{id}           → { ogrenciId, sinifId, ogretmenId, metin, tarih }   (öğretmen iç gözlem günlüğü — veliye KAPALI)
+/kresler/{kresId}/bildirimler/{id}         → { hedefUid, tur, baslik, metin, link, okundu, tarih }   (uygulama içi bildirim çanı; sadece hedefi okur)
+/kresler/{kresId}/menuler/{haftaBaslangic} → { hafta, gunler:[{kahvalti,ogle,ikindi} ×5], guncelleme }   (haftalık yemek listesi; yönetici yazar, herkes okur)
+/kresler/{kresId}/programlar/{sinifId_hafta} → { sinifId, hafta, gunler:[metin ×5], guncelleme }   (haftalık sınıf programı; yönetici + sınıf öğretmeni yazar)
+/kresler/{kresId}/devamsizlikBildirimleri/{id} → { ogrenciId, sinifId, veliUid, tarih, tur("gelmeyecek"|"gec"), aciklama }   (veli → öğretmen ön bildirimi)
+/sistemDuyurulari/{id}                     → { baslik, metin, seviye("bilgi"|"uyari"|"onemli"), aktif, tarih }   (sağlayıcı → tüm kreşler; herkese açık okuma)
 /kresler/{kresId}/duyurular/{id}           → { baslik, icerik, hedef("okul"|sinifId), yayinlayanId, tarih }
 /kresler/{kresId}/duyuruOkundu/{veliUid}   → { okunanlar[] }
 /kresler/{kresId}/mesajlar/{id}            → { gonderenId, aliciId, katilimcilar[2], icerik, okundu, tarih }

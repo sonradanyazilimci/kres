@@ -68,6 +68,14 @@ service cloud.firestore {
     }
 
     // =========================================================
+    //  Sistem duyurulari (saglayici -> tum kresler, herkese acik)
+    // =========================================================
+    match /sistemDuyurulari/{id} {
+      allow read: if true;
+      allow write: if superAdmin();
+    }
+
+    // =========================================================
     //  Saglayici
     // =========================================================
     match /superAdmins/{u} {
@@ -177,6 +185,74 @@ service cloud.firestore {
       }
 
       // -----------------------------------------------------
+      //  bildirimler (uygulama ici bildirim merkezi)
+      //  Her belge tek bir kullaniciya hedeflenir (hedefUid).
+      // -----------------------------------------------------
+      match /bildirimler/{id} {
+        allow read: if superAdmin()
+          || (uyesi(kid) && resource.data.hedefUid == uid());
+        // Herhangi bir kres uyesi baska bir uyeye bildirim yazabilir
+        // (ogretmen -> veli, veli -> yonetici vb.)
+        allow create: if superAdmin() || (uyesi(kid)
+          && request.resource.data.hedefUid is string);
+        // Yalnizca alicisi "okundu" isaretler; hedef degistirilemez.
+        allow update: if superAdmin() || (uyesi(kid)
+          && resource.data.hedefUid == uid()
+          && request.resource.data.hedefUid == resource.data.hedefUid);
+        allow delete: if superAdmin()
+          || (uyesi(kid) && resource.data.hedefUid == uid());
+      }
+
+      // -----------------------------------------------------
+      //  devamsizlikBildirimleri (veli -> ogretmen: gelmeyecek / gec)
+      // -----------------------------------------------------
+      match /devamsizlikBildirimleri/{id} {
+        allow read: if superAdmin() || kadmin(kid)
+          || (kogretmen(kid) && sinifOgretmeni(kid, resource.data.sinifId))
+          || (uyesi(kid) && resource.data.veliUid == uid());
+        allow create: if yazabilir(kid) && uyesi(kid)
+          && request.resource.data.veliUid == uid()
+          && ogrenciVelisi(kid, request.resource.data.ogrenciId)
+          && request.resource.data.tur in ['gelmeyecek', 'gec'];
+        allow update: if false;
+        allow delete: if superAdmin() || kadmin(kid)
+          || (uyesi(kid) && resource.data.veliUid == uid());
+      }
+
+      // -----------------------------------------------------
+      //  menuler (haftalik yemek listesi — okul geneli)
+      //  Dokuman kimligi: hafta baslangic tarihi (YYYY-MM-DD, Pazartesi)
+      // -----------------------------------------------------
+      match /menuler/{hafta} {
+        allow read: if uyesi(kid) || superAdmin();
+        allow write: if (superAdmin() || kadmin(kid)) && yazabilir(kid);
+      }
+
+      // -----------------------------------------------------
+      //  programlar (haftalik sinif etkinlik programi)
+      //  Dokuman kimligi: {sinifId}_{haftaBaslangic}
+      // -----------------------------------------------------
+      match /programlar/{id} {
+        allow read: if uyesi(kid) || superAdmin();
+        allow create, update: if yazabilir(kid) && (superAdmin() || kadmin(kid)
+          || (kogretmen(kid) && sinifOgretmeni(kid, request.resource.data.sinifId)));
+        allow delete: if (superAdmin() || kadmin(kid)) && yazabilir(kid);
+      }
+
+      // -----------------------------------------------------
+      //  gozlemler (ogretmen ic gozlem gunlugu — veliye KAPALI)
+      // -----------------------------------------------------
+      match /gozlemler/{id} {
+        allow read: if superAdmin() || kadmin(kid)
+          || (kogretmen(kid) && sinifOgretmeni(kid, resource.data.sinifId));
+        allow create: if yazabilir(kid) && (kadmin(kid)
+          || (kogretmen(kid) && sinifOgretmeni(kid, request.resource.data.sinifId)
+              && request.resource.data.ogretmenId == uid()));
+        allow update, delete: if yazabilir(kid)
+          && (kadmin(kid) || resource.data.ogretmenId == uid());
+      }
+
+      // -----------------------------------------------------
       //  duyurular
       // -----------------------------------------------------
       match /duyurular/{id} {
@@ -253,8 +329,12 @@ service cloud.firestore {
 
         match /yanitlar/{u} {
           allow read: if uyesi(kid) || superAdmin();
-          allow write: if uid() == u && uyesi(kid)
+          // Veli yalnizca BIR KEZ yanit verebilir; sonradan degistiremez/silemez.
+          allow create: if uid() == u && uyesi(kid)
             && request.resource.data.karar in ['onay', 'ret'];
+          allow update: if false;
+          // Yeniden yanit gerekiyorsa yonetici/saglayici mevcut yaniti siler.
+          allow delete: if superAdmin() || kadmin(kid);
         }
       }
 

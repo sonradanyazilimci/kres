@@ -31,6 +31,8 @@
       <a href="#" data-gorunum="odemeler"><span class="i">💳</span> Aidat / Ödeme</a>
       <a href="#" data-gorunum="talepler"><span class="i">📨</span> Talepler</a>
       <a href="#" data-gorunum="izinler"><span class="i">📝</span> İzin / Belge</a>
+      <a href="#" data-gorunum="program"><span class="i">🍽️</span> Yemek & Program</a>
+      <a href="#" data-gorunum="yilsonu"><span class="i">🎓</span> Yıl Sonu</a>
       <a href="#" data-gorunum="ayarlar"><span class="i">⚙️</span> Ayarlar</a>
       <div class="yan-menu__alt">
         <a href="#" id="cikisBtn"><span class="i">🚪</span> Çıkış Yap</a>
@@ -47,6 +49,10 @@
       <div class="panel-icerik">
         <div class="panel-ust">
           <h1 id="sayfaBaslik">Genel Bakış</h1>
+          <div class="global-ara-sar">
+            <input type="search" id="globalAra" placeholder="🔍 Öğrenci / veli / öğretmen ara..." autocomplete="off" />
+            <div class="global-ara-sonuc" id="globalAraSonuc" hidden></div>
+          </div>
           <div class="kullanici-rozet">
             <span class="avatar" id="userAvatar">?</span>
             <span id="userAd">...</span>
@@ -226,6 +232,10 @@
             </form>
           </div>
           <div class="kutu">
+            <div class="kutu__ust"><h2>Tahsilat Özeti</h2></div>
+            <div id="tahsilat-ozet"></div>
+          </div>
+          <div class="kutu">
             <div class="kutu__ust">
               <h2>Aidat Kayıtları</h2>
               <select id="odemeDurumFiltre" style="max-width:200px">
@@ -294,6 +304,75 @@
           <div class="kutu">
             <div class="kutu__ust"><h2>Gönderilen Belgeler</h2></div>
             <div id="izin-liste"></div>
+          </div>
+        </section>
+
+        <!-- YEMEK & PROGRAM -->
+        <section class="gorunum" id="gorunum-program">
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>Haftalık Yemek Listesi</h2>
+              <div class="satir-arasi">
+                <button type="button" class="btn btn--ghost btn--sm" id="menuOnceki">‹ Önceki</button>
+                <strong id="menuHafta"></strong>
+                <button type="button" class="btn btn--ghost btn--sm" id="menuSonraki">Sonraki ›</button>
+              </div>
+            </div>
+            <div id="menu-tablo"></div>
+            <button class="btn btn--primary mt-2" id="menuKaydet">Yemek Listesini Kaydet</button>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>Sınıf Haftalık Programı</h2>
+              <div class="satir-arasi">
+                <select id="programSinif" style="max-width:200px"></select>
+                <button type="button" class="btn btn--ghost btn--sm" id="programOnceki">‹</button>
+                <strong id="programHafta"></strong>
+                <button type="button" class="btn btn--ghost btn--sm" id="programSonraki">›</button>
+              </div>
+            </div>
+            <div id="program-tablo"></div>
+            <button class="btn btn--primary mt-2" id="programKaydet">Programı Kaydet</button>
+          </div>
+        </section>
+
+        <!-- YIL SONU -->
+        <section class="gorunum" id="gorunum-yilsonu">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Sınıf Terfi / Taşıma</h2></div>
+            <p class="form-yardim">Bir sınıftaki tüm öğrencileri başka bir sınıfa taşıyın veya mezun/ayrıldı olarak işaretleyin (sınıftan çıkarılır).</p>
+            <form id="terfiForm">
+              <div class="form-satir">
+                <div class="form-grup">
+                  <label for="terfiKaynak">Kaynak sınıf</label>
+                  <select id="terfiKaynak" name="kaynak" required></select>
+                </div>
+                <div class="form-grup">
+                  <label for="terfiHedef">Hedef</label>
+                  <select id="terfiHedef" name="hedef" required></select>
+                </div>
+              </div>
+              <button type="submit" class="btn btn--primary" id="terfiBtn">Öğrencileri Taşı</button>
+            </form>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Toplu Veli Mesajı</h2></div>
+            <p class="form-yardim">Duyuru olarak yayınlanır ve seçilen velilerin bildirimlerine düşer.</p>
+            <form id="topluMesajForm">
+              <div class="form-grup">
+                <label for="tmBaslik">Başlık</label>
+                <input type="text" id="tmBaslik" name="baslik" required />
+              </div>
+              <div class="form-grup">
+                <label for="tmIcerik">Mesaj</label>
+                <textarea id="tmIcerik" name="icerik" required></textarea>
+              </div>
+              <div class="form-grup">
+                <label for="tmHedef">Alıcılar</label>
+                <select id="tmHedef" name="hedef"><option value="okul">Tüm veliler</option></select>
+              </div>
+              <button type="submit" class="btn btn--primary" id="tmBtn">Gönder</button>
+            </form>
           </div>
         </section>
 

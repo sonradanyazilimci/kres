@@ -83,6 +83,19 @@ export async function islemKaydet(uid, islem, detay = {}) {
   } catch { /* günlük yazılamazsa akışı bozma */ }
 }
 
+// ---------- Bildirim gönder (uygulama içi çan) ----------
+// hedefUidler: string | string[] ; link: "veli.html#gorunum-raporlar" gibi
+export async function bildirimGonder(hedefUidler, tur, baslik, metin = "", link = "") {
+  if (!_kresId) return;
+  const liste = [...new Set([].concat(hedefUidler).filter(Boolean))];
+  await Promise.all(liste.map((hedefUid) =>
+    addDoc(kol("bildirimler"), {
+      hedefUid, tur, baslik, metin, link,
+      okundu: false, tarih: serverTimestamp()
+    }).catch(() => { /* bildirim yazılamazsa akışı bozma */ })
+  ));
+}
+
 // ---------- Tam ekran kilit (öğretmen/veli + onay bekleyen yönetici) ----------
 export function kilitEkraniGoster(kres) {
   if (document.getElementById("abonelik-kilit")) return;

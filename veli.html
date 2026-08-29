@@ -23,11 +23,13 @@
       <div class="yan-menu__logo"><span class="logo__mark">🧸</span><span>Veli</span></div>
       <a href="#" data-gorunum="ozet" class="aktif"><span class="i">🏠</span> Özet</a>
       <a href="#" data-gorunum="raporlar"><span class="i">📝</span> Günlük Raporlar</a>
+      <a href="#" data-gorunum="gelisim"><span class="i">📈</span> Aylık Özet</a>
       <a href="#" data-gorunum="yoklama"><span class="i">✅</span> Yoklama</a>
       <a href="#" data-gorunum="galeri"><span class="i">📷</span> Galeri</a>
       <a href="#" data-gorunum="duyurular"><span class="i">📢</span> Duyurular</a>
       <a href="#" data-gorunum="mesajlar"><span class="i">💬</span> Mesajlar</a>
       <a href="#" data-gorunum="odemeler"><span class="i">💳</span> Ödemeler</a>
+      <a href="#" data-gorunum="program"><span class="i">🍽️</span> Yemek & Program</a>
       <a href="#" data-gorunum="izinler"><span class="i">📝</span> İzin / Belgeler</a>
       <div class="yan-menu__alt">
         <a href="#" id="cikisBtn"><span class="i">🚪</span> Çıkış Yap</a>
@@ -75,8 +77,44 @@
           </div>
         </section>
 
+        <!-- AYLIK ÖZET -->
+        <section class="gorunum" id="gorunum-gelisim">
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>Aylık Gelişim Özeti</h2>
+              <input type="month" id="gelisimAy" />
+            </div>
+            <div id="gelisim-icerik"></div>
+          </div>
+        </section>
+
         <!-- YOKLAMA -->
         <section class="gorunum" id="gorunum-yoklama">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Devamsızlık Bildir</h2></div>
+            <p class="form-yardim">Çocuğunuz gelmeyecek ya da geç gelecekse öğretmene önceden haber verin.</p>
+            <form id="devamsizlikForm">
+              <div class="form-satir">
+                <div class="form-grup">
+                  <label for="devamTarih">Tarih</label>
+                  <input type="date" id="devamTarih" name="tarih" required />
+                </div>
+                <div class="form-grup">
+                  <label for="devamTur">Durum</label>
+                  <select id="devamTur" name="tur">
+                    <option value="gelmeyecek">Gelmeyecek</option>
+                    <option value="gec">Geç gelecek</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-grup">
+                <label for="devamAciklama">Açıklama (isteğe bağlı)</label>
+                <input type="text" id="devamAciklama" name="aciklama" placeholder="Örn: Doktor randevusu" />
+              </div>
+              <button type="submit" class="btn btn--primary" id="devamBtn">Öğretmene Bildir</button>
+            </form>
+            <div id="devamsizlik-liste" class="mt-2"></div>
+          </div>
           <div class="kutu">
             <div class="kutu__ust"><h2>Yoklama Geçmişi</h2></div>
             <div class="tablo-sar"><table class="veri-tablo tablo-kart" id="yoklama-tablo"></table></div>
@@ -128,6 +166,18 @@
             <div class="kutu__ust"><h2>Aidat / Ödeme Durumu</h2></div>
             <p class="form-yardim">Ödemesini yaptığınız aidat için "Ödedim, bildir" deyin; yönetici onaylayınca "Ödendi" olur.</p>
             <div class="tablo-sar"><table class="veri-tablo tablo-kart" id="odeme-tablo"></table></div>
+          </div>
+        </section>
+
+        <!-- YEMEK & PROGRAM -->
+        <section class="gorunum" id="gorunum-program">
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Haftalık Program</h2></div>
+            <div id="veli-program-goster"></div>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Yemek Listesi</h2></div>
+            <div id="veli-menu-goster"></div>
           </div>
         </section>
 

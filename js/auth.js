@@ -11,7 +11,7 @@ import {
   sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  doc, getDoc
+  doc, getDoc, updateDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 import { auth, db } from "./firebase-config.js";
@@ -55,7 +55,8 @@ export async function oturumBaglami(user, taze = false) {
   if (!dizin || !dizin.kresId) return null; // hiçbir kreşe bağlı değil
 
   const kres = await kresBaglamiKur(dizin.kresId);
-  const pSnap = await getDoc(doc(db, "kresler", dizin.kresId, "users", user.uid));
+  const pRef = doc(db, "kresler", dizin.kresId, "users", user.uid);
+  const pSnap = await getDoc(pRef);
   _baglamCache = {
     uid: user.uid,
     rol: dizin.rol,
@@ -64,6 +65,10 @@ export async function oturumBaglami(user, taze = false) {
     aktif: kresAktifMi(kres),
     profil: pSnap.exists() ? { uid: user.uid, ...pSnap.data() } : null
   };
+  // Son giriş zamanını kaydet (kullanım metrikleri; rol değişmediği için kural izin verir)
+  if (pSnap.exists() && kresAktifMi(kres)) {
+    updateDoc(pRef, { sonGiris: serverTimestamp() }).catch(() => { /* yoksay */ });
+  }
   return _baglamCache;
 }
 

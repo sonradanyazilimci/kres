@@ -274,11 +274,15 @@
     import { dizinOku, superAdminMi } from "./js/kres.js";
     import { toast, $ } from "./js/utils.js";
     import { anasayfaYukle } from "./js/site-icerik.js";
+    import { sistemDuyurulariniGoster } from "./js/sistem-duyuru.js";
+    import { temaBaslat } from "./js/tema.js";
+    temaBaslat();
 
     document.getElementById("yil").textContent = new Date().getFullYear();
 
     // Panelden düzenlenen metinleri uygula (yoksa sayfadaki varsayılanlar kalır)
     anasayfaYukle();
+    sistemDuyurulariniGoster();
 
     // --- Mobil menü ---
     const navToggle = $("#navToggle");

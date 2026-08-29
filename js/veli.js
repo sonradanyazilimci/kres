@@ -4,19 +4,24 @@
 // =============================================================
 
 import {
-  collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc,
+  collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, onSnapshot, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 import { sayfaKorumasi, cikisYap } from "./auth.js";
 import { db } from "./firebase-config.js";
-import { kol, bel, aktifKresId, aktifKres, kilitEkraniGoster } from "./kres.js";
+import { kol, bel, aktifKresId, aktifKres, kilitEkraniGoster, bildirimGonder } from "./kres.js";
+import { kurBildirimZili } from "./bildirim.js";
+import { sistemDuyurulariniGoster } from "./sistem-duyuru.js";
+import { temaBaslat } from "./tema.js";
 import {
   $, $$, el, escapeHtml, toast, setLoading, emptyState, tabloBos,
   formatDate, formatDateTime, isoDate, yasHesapla, basHarfler, paraFormat,
   firebaseHata, kurPanelGezinme, kurCikis, kullaniciRozeti, openModal, closeModal,
-  raporKart, formData
+  raporKart, formData, haftaBaslangici, haftaGunleri, haftaEtiket
 } from "./utils.js";
+
+temaBaslat();
 
 // Var olmayan doküman okunurken güvenlik kuralları `permission-denied`
 // fırlatabilir; bunu "kayıt yok" olarak ele al.
@@ -41,6 +46,7 @@ let okunanDuyurular = new Set();
 let seciliMesajKisi = null;
 let mesajAboneligi = null;
 let galeriTarih = isoDate();
+let adminUidler = [];
 
 // ---------- Başlangıç ----------
 baglam = await sayfaKorumasi("veli");
@@ -49,12 +55,16 @@ yazma = baglam.aktif;
 kullaniciRozeti(profil);
 kurCikis(() => cikisYap());
 if (!baglam.aktif) kilitEkraniGoster(aktifKres());
+kurBildirimZili({ profil, kresId: aktifKresId() });
+sistemDuyurulariniGoster();
 
 kurPanelGezinme({
-  ozet: "Özet", raporlar: "Günlük Raporlar", yoklama: "Yoklama",
+  ozet: "Özet", raporlar: "Günlük Raporlar", gelisim: "Aylık Özet", yoklama: "Yoklama",
   galeri: "Galeri", duyurular: "Duyurular", mesajlar: "Mesajlar",
-  odemeler: "Ödemeler", izinler: "İzin / Belgeler"
+  odemeler: "Ödemeler", program: "Yemek & Program", izinler: "İzin / Belgeler"
 }, gorunumDegisti);
+
+$("#gelisimAy").addEventListener("change", gelisimYukle);
 
 $("#galeriTarih").addEventListener("change", (e) => { galeriTarih = e.target.value || isoDate(); galeriYukle(); });
 $("#galeriBugun").addEventListener("click", () => { galeriTarih = isoDate(); $("#galeriTarih").value = galeriTarih; galeriYukle(); });
@@ -119,6 +129,12 @@ async function baslat() {
   const okSnap = await getDoc(bel("duyuruOkundu", profil.uid));
   if (okSnap.exists()) okunanDuyurular = new Set(okSnap.data().okunanlar || []);
 
+  // Yönetici uid'leri (ödeme bildirimi vb. için)
+  try {
+    const aSnap = await getDocs(query(kol("users"), where("rol", "==", "admin")));
+    adminUidler = aSnap.docs.map((d) => d.id);
+  } catch { /* yoksay */ }
+
   // Çocuk seçici
   const sec = $("#cocukSecici");
   sec.innerHTML = cocuklar.map((c) => `<option value="${c.id}">${escapeHtml(c.ad)} ${escapeHtml(c.soyad)}</option>`).join("");
@@ -141,13 +157,122 @@ function gorunumDegisti(ad) {
   if (!seciliCocuk) return;
   if (ad === "ozet") ozetYukle();
   if (ad === "raporlar") raporYukle();
+  if (ad === "gelisim") gelisimYukle();
   if (ad === "yoklama") yoklamaYukle();
   if (ad === "galeri") galeriYukle();
   if (ad === "duyurular") duyurulariYukle();
   if (ad === "mesajlar") mesajlasmaKur();
   if (ad === "odemeler") odemelerYukle();
+  if (ad === "program") programYukle();
   if (ad === "izinler") izinleriYukle();
 }
+
+// ---------- Yemek listesi + haftalık program (salt okunur) ----------
+async function programYukle() {
+  const hafta = haftaBaslangici();
+  const gunler = haftaGunleri(hafta);
+
+  // Program — çocuğun sınıfı
+  const pk = $("#veli-program-goster");
+  const sid = seciliCocuk?.sinifId;
+  let pv = {};
+  if (sid) { try { const s = await getDoc(bel("programlar", `${sid}_${hafta}`)); if (s.exists()) pv = s.data(); } catch { /* yoksay */ } }
+  if (pv.gunler && pv.gunler.some((x) => x)) {
+    pk.innerHTML = `<p class="soluk mb-1">${escapeHtml(haftaEtiket(hafta))}${sid ? " · " + escapeHtml(siniflar.get(sid)?.ad || "") : ""}</p>` +
+      gunler.map((g, i) => `<div class="hafta-gun">
+        <div class="hafta-gun__baslik">${escapeHtml(g.isim)}</div>
+        <div class="hafta-satir">${pv.gunler[i] ? escapeHtml(pv.gunler[i]) : "<span class='soluk'>—</span>"}</div>
+      </div>`).join("");
+  } else {
+    pk.innerHTML = `<p class="soluk">Bu hafta için program paylaşılmamış.</p>`;
+  }
+
+  // Yemek listesi
+  const mk = $("#veli-menu-goster");
+  let mv = {};
+  try { const s = await getDoc(bel("menuler", hafta)); if (s.exists()) mv = s.data(); } catch { /* yoksay */ }
+  if (mv.gunler && mv.gunler.some((x) => x && (x.kahvalti || x.ogle || x.ikindi))) {
+    mk.innerHTML = `<p class="soluk mb-1">${escapeHtml(haftaEtiket(hafta))}</p>` +
+      gunler.map((g, i) => {
+        const m = mv.gunler[i] || {};
+        return `<div class="hafta-gun">
+          <div class="hafta-gun__baslik">${escapeHtml(g.isim)}</div>
+          ${m.kahvalti ? `<div class="hafta-satir">🥪 ${escapeHtml(m.kahvalti)}</div>` : ""}
+          ${m.ogle ? `<div class="hafta-satir">🍲 ${escapeHtml(m.ogle)}</div>` : ""}
+          ${m.ikindi ? `<div class="hafta-satir">🍎 ${escapeHtml(m.ikindi)}</div>` : ""}
+        </div>`;
+      }).join("");
+  } else {
+    mk.innerHTML = `<p class="soluk">Bu hafta için yemek listesi girilmemiş.</p>`;
+  }
+}
+
+// =============================================================
+//  AYLIK GELİŞİM ÖZETİ
+// =============================================================
+async function gelisimYukle() {
+  if (!seciliCocuk) return;
+  const kap = $("#gelisim-icerik");
+  if (!$("#gelisimAy").value) $("#gelisimAy").value = isoDate().slice(0, 7);
+  const ay = $("#gelisimAy").value;               // "2026-08"
+  setLoading(kap);
+
+  // Yoklama (sorgu velide çalışıyor)
+  const ySnap = await getDocs(query(kol("yoklamalar"), where("ogrenciId", "==", seciliCocuk.id)));
+  const yList = ySnap.docs.map((d) => d.data()).filter((y) => (y.tarih || "").startsWith(ay));
+  const ySay = { geldi: 0, gec: 0, gelmedi: 0 };
+  yList.forEach((y) => { if (ySay[y.durum] != null) ySay[y.durum]++; });
+  const toplamGun = yList.length;
+  const devamOran = toplamGun ? Math.round(((ySay.geldi + ySay.gec) / toplamGun) * 100) : 0;
+
+  // Günlük raporlar — ayın günlerini deterministik oku
+  const [yil, aySay] = ay.split("-").map(Number);
+  const gunSayisi = new Date(yil, aySay, 0).getDate();
+  const gunler = [];
+  for (let g = 1; g <= gunSayisi; g++) gunler.push(`${ay}-${String(g).padStart(2, "0")}`);
+  const rSnaplar = await Promise.all(gunler.map((t) => belgeGetir(bel("gunlukRaporlar", `${seciliCocuk.id}_${t}`))));
+  const rList = rSnaplar.filter((s) => s.exists()).map((s) => s.data());
+  const dagilim = (alan) => {
+    const m = {};
+    rList.forEach((r) => { const v = r[alan]; if (v) m[v] = (m[v] || 0) + 1; });
+    return m;
+  };
+
+  const bar = (etiket, deger, toplam, renk) => {
+    const yuzde = toplam ? Math.round((deger / toplam) * 100) : 0;
+    return `<div class="gelisim-bar">
+      <span class="gelisim-bar__et">${escapeHtml(etiket)}</span>
+      <span class="gelisim-bar__cizgi"><span style="width:${yuzde}%;background:${renk}"></span></span>
+      <span class="gelisim-bar__sayi">${deger}</span></div>`;
+  };
+  const dagilimBloku = (baslik, m) => {
+    const anahtarlar = Object.keys(m);
+    if (!anahtarlar.length) return `<p class="soluk">${baslik}: kayıt yok</p>`;
+    const top = rList.length;
+    return `<h3 style="font-size:1rem;margin:14px 0 6px">${baslik}</h3>` +
+      anahtarlar.sort((a, b) => m[b] - m[a]).map((k) => bar(k, m[k], top, "var(--renk-ikincil)")).join("");
+  };
+
+  kap.innerHTML = `
+    <div class="stat-izgara" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr));margin-bottom:14px">
+      ${gStat("✅", ySay.geldi, "Geldi")}
+      ${gStat("⏰", ySay.gec, "Geç")}
+      ${gStat("❌", ySay.gelmedi, "Gelmedi")}
+      ${gStat("📊", "%" + devamOran, "Devam oranı")}
+      ${gStat("📝", `${rList.length}/${gunSayisi}`, "Rapor girildi")}
+    </div>
+    ${toplamGun ? `<h3 style="font-size:1rem;margin:6px 0">Yoklama</h3>
+      ${bar("Geldi", ySay.geldi, toplamGun, "var(--basari)")}
+      ${bar("Geç", ySay.gec, toplamGun, "var(--uyari)")}
+      ${bar("Gelmedi", ySay.gelmedi, toplamGun, "var(--hata)")}` : `<p class="soluk">Bu ay yoklama kaydı yok.</p>`}
+    ${dagilimBloku("Ruh Hali", dagilim("ruhHali"))}
+    ${dagilimBloku("Yemek", dagilim("yemek"))}
+    ${dagilimBloku("Uyku", dagilim("uyku"))}
+  `;
+}
+const gStat = (i, d, e) => `<div class="stat-kart">
+  <div class="stat-kart__ikon">${i}</div>
+  <div><div class="stat-kart__sayi">${d}</div><div class="stat-kart__etiket">${e}</div></div></div>`;
 
 // =============================================================
 //  ÖZET
@@ -201,9 +326,13 @@ async function raporYukle() {
 // =============================================================
 //  YOKLAMA GEÇMİŞİ
 // =============================================================
+$("#devamsizlikForm").addEventListener("submit", devamsizlikBildir);
+
 async function yoklamaYukle() {
   const tablo = $("#yoklama-tablo");
   tabloBos(tablo, "Yükleniyor...");
+  if ($("#devamTarih") && !$("#devamTarih").value) $("#devamTarih").value = isoDate();
+  devamsizliklariYukle();
   const snap = await getDocs(query(kol("yoklamalar"), where("ogrenciId", "==", seciliCocuk.id)));
   const liste = snap.docs.map((d) => d.data()).sort((a, b) => (b.tarih || "").localeCompare(a.tarih || ""));
   if (!liste.length) { tabloBos(tablo, "Yoklama kaydı yok"); return; }
@@ -214,6 +343,58 @@ async function yoklamaYukle() {
     <tbody>${liste.map((y) => `
       <tr><td data-label="Tarih">${formatDate(y.tarih)}</td>
       <td data-label="Durum"><span class="rozet rozet--${rozet[y.durum] || "bilgi"}">${metin[y.durum] || y.durum}</span></td></tr>`).join("")}</tbody>`;
+}
+
+async function devamsizlikBildir(e) {
+  e.preventDefault();
+  if (!yazma) { toast("Kreş aboneliği pasif.", "warning"); return; }
+  if (!seciliCocuk) return;
+  const v = formData(e.target);
+  const btn = $("#devamBtn");
+  btn.disabled = true; btn.textContent = "Gönderiliyor...";
+  try {
+    await addDoc(kol("devamsizlikBildirimleri"), {
+      ogrenciId: seciliCocuk.id, sinifId: seciliCocuk.sinifId,
+      veliUid: profil.uid, tarih: v.tarih || isoDate(),
+      tur: v.tur || "gelmeyecek", aciklama: v.aciklama || "",
+      olusturma: serverTimestamp()
+    });
+    e.target.reset();
+    $("#devamTarih").value = isoDate();
+    toast("Öğretmene bildirildi.", "success");
+    const sinif = siniflar.get(seciliCocuk.sinifId);
+    bildirimGonder(sinif?.ogretmenId, "devamsizlik", "Devamsızlık bildirimi",
+      `${seciliCocuk.ad} ${seciliCocuk.soyad} — ${v.tur === "gec" ? "geç gelecek" : "gelmeyecek"} (${formatDate(v.tarih)})`, "yoklama");
+    devamsizliklariYukle();
+  } catch (err) { toast(firebaseHata(err), "error"); }
+  btn.disabled = false; btn.textContent = "Öğretmene Bildir";
+}
+
+async function devamsizliklariYukle() {
+  const kap = $("#devamsizlik-liste");
+  if (!kap || !seciliCocuk) return;
+  const snap = await getDocs(query(kol("devamsizlikBildirimleri"), where("veliUid", "==", profil.uid)));
+  const liste = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    .filter((x) => x.ogrenciId === seciliCocuk.id)
+    .sort((a, b) => (b.tarih || "").localeCompare(a.tarih || "")).slice(0, 8);
+  if (!liste.length) { kap.innerHTML = ""; return; }
+  kap.innerHTML = "";
+  liste.forEach((x) => {
+    kap.appendChild(el("div", { class: "satir-arasi", style: "padding:8px 0;border-top:1px dashed var(--kenar)" },
+      el("span", { class: `rozet ${x.tur === "gec" ? "rozet--uyari" : "rozet--hata"}` },
+        x.tur === "gec" ? "Geç" : "Gelmeyecek"),
+      el("span", {}, formatDate(x.tarih)),
+      x.aciklama ? el("span", { class: "soluk" }, x.aciklama) : null,
+      el("button", { class: "btn btn--ghost btn--sm", onClick: () => devamsizlikSil(x.id) }, "Sil")
+    ));
+  });
+}
+
+async function devamsizlikSil(id) {
+  try {
+    await deleteDoc(bel("devamsizlikBildirimleri", id));
+    devamsizliklariYukle();
+  } catch (err) { toast(firebaseHata(err), "error"); }
 }
 
 // =============================================================
@@ -358,6 +539,8 @@ function odemeBildir(o) {
       });
       closeModal();
       toast("Ödeme bildiriminiz iletildi.", "success");
+      bildirimGonder(adminUidler, "odeme", "Ödeme bildirimi",
+        `${profil.ad} ${profil.soyad} — ${ayGoster(o.ay)} · ${paraFormat(o.tutar)}`, "odemeler");
       odemelerYukle();
     } catch (err) { toast(firebaseHata(err), "error"); btn.disabled = false; }
   });
@@ -414,8 +597,8 @@ async function izinleriYukle() {
         ? el("div", { class: "satir-arasi mt-1" },
             el("span", { class: `rozet rozet--${yanit.karar === "onay" ? "basari" : "hata"}` },
               yanit.karar === "onay" ? "Onayladınız" : "Reddettiniz"),
-            yanit.not ? el("span", { class: "soluk" }, yanit.not) : null,
-            el("button", { class: "btn btn--ghost btn--sm", onClick: () => izinYanitla(b, cocuk) }, "Değiştir"))
+            yanit.tarih ? el("span", { class: "soluk" }, formatDateTime(yanit.tarih)) : null,
+            yanit.not ? el("span", { class: "soluk" }, "· " + yanit.not) : null)
         : el("div", { class: "satir-arasi mt-1" },
             el("button", { class: "btn btn--primary btn--sm", onClick: () => izinYanitla(b, cocuk, "onay") }, "Onayla"),
             el("button", { class: "btn btn--danger btn--sm", onClick: () => izinYanitla(b, cocuk, "ret") }, "Reddet"))
@@ -434,6 +617,7 @@ function izinYanitla(belge, cocuk, onSecim = null) {
         el("option", { value: "ret", ...(onSecim === "ret" ? { selected: "" } : {}) }, "Reddediyorum"))),
     el("div", { class: "form-grup" }, el("label", {}, "Not (isteğe bağlı)"),
       el("input", { name: "not" })),
+    el("p", { class: "form-yardim" }, "⚠️ Yanıtınız kesindir; gönderdikten sonra değiştirilemez."),
     el("button", { class: "btn btn--primary btn--block mt-1", type: "submit" }, "Gönder")
   );
   form.addEventListener("submit", async (e) => {
@@ -442,7 +626,11 @@ function izinYanitla(belge, cocuk, onSecim = null) {
     const btn = form.querySelector("button[type=submit]");
     btn.disabled = true;
     try {
-      await setDoc(doc(izinYanitKol(belge.id), profil.uid), {
+      // create-only: doküman zaten varsa kurallar reddeder (yanıt değiştirilemez)
+      const ref = doc(izinYanitKol(belge.id), profil.uid);
+      const mevcut = await getDoc(ref).catch(() => ({ exists: () => false }));
+      if (mevcut.exists()) { toast("Bu belgeye zaten yanıt verdiniz; değiştirilemez.", "warning"); closeModal(); izinleriYukle(); return; }
+      await setDoc(ref, {
         ogrenciId: cocuk?.id || null,
         karar: v.karar,
         not: v.not || "",
@@ -450,6 +638,8 @@ function izinYanitla(belge, cocuk, onSecim = null) {
       });
       closeModal();
       toast("Yanıtınız kaydedildi.", "success");
+      bildirimGonder(adminUidler, "izin", "İzin belgesi yanıtlandı",
+        `${profil.ad} ${profil.soyad} — ${belge.baslik}: ${v.karar === "onay" ? "Onay" : "Ret"}`, "izinler");
       izinleriYukle();
     } catch (err) { toast(firebaseHata(err), "error"); btn.disabled = false; }
   });

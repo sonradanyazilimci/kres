@@ -24,8 +24,10 @@
       <a href="#" data-gorunum="sinifim" class="aktif"><span class="i">🧒</span> Sınıfım</a>
       <a href="#" data-gorunum="yoklama"><span class="i">✅</span> Yoklama</a>
       <a href="#" data-gorunum="rapor"><span class="i">📝</span> Günlük Rapor</a>
+      <a href="#" data-gorunum="toplurapor"><span class="i">📋</span> Toplu Rapor</a>
       <a href="#" data-gorunum="galeri"><span class="i">📷</span> Galeri</a>
       <a href="#" data-gorunum="duyurular"><span class="i">📢</span> Duyurular</a>
+      <a href="#" data-gorunum="program"><span class="i">🍽️</span> Yemek & Program</a>
       <a href="#" data-gorunum="mesajlar"><span class="i">💬</span> Mesajlar</a>
       <a href="#" data-gorunum="istek"><span class="i">📨</span> Yönetime İstek</a>
       <div class="yan-menu__alt">
@@ -95,7 +97,10 @@
             </div>
 
             <div class="satir-arasi mt-1">
-              <button type="button" class="btn btn--secondary btn--sm" id="raporHarika">🌟 Harika bir gün</button>
+              <button type="button" class="btn btn--secondary btn--sm" id="raporHarika">🌟 Harika gün</button>
+              <button type="button" class="btn btn--ghost btn--sm" id="raporSakin">😌 Sakin gün</button>
+              <button type="button" class="btn btn--ghost btn--sm" id="raporZor">😕 Zor gün</button>
+              <button type="button" class="btn btn--ghost btn--sm" id="raporKopyala">📋 Son raporu kopyala</button>
               <span class="rapor-durum" id="raporDurum"></span>
             </div>
 
@@ -152,6 +157,26 @@
           </div>
         </section>
 
+        <!-- TOPLU RAPOR -->
+        <section class="gorunum" id="gorunum-toplurapor">
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>Toplu Günlük Rapor</h2>
+              <input type="date" id="topluTarih" />
+            </div>
+            <div class="form-grup">
+              <label for="topluEtkinlik">🎨 Tüm sınıf için günün etkinliği</label>
+              <input type="text" id="topluEtkinlik" placeholder="Örn: Bahçede top oyunu" />
+            </div>
+            <p class="form-yardim">Her öğrenci için hızlıca işaretleyin; dokunmadığınız alan "olumlu" varsayılır. Kaydedince tümü velilere gider. Zaten kayıtlı olanlar formda görünür.</p>
+            <div id="toplu-liste"></div>
+            <div class="satir-arasi mt-2">
+              <button class="btn btn--primary" id="topluKaydet">Tümünü Kaydet</button>
+              <span class="rapor-durum rozet" id="topluDurum"></span>
+            </div>
+          </div>
+        </section>
+
         <!-- GALERİ -->
         <section class="gorunum" id="gorunum-galeri">
           <div class="kutu">
@@ -179,6 +204,27 @@
             </div>
             <p class="form-yardim" id="galeri-bilgi"></p>
             <div class="foto-izgara" id="foto-izgara"></div>
+          </div>
+        </section>
+
+        <!-- YEMEK & PROGRAM -->
+        <section class="gorunum" id="gorunum-program">
+          <div class="kutu">
+            <div class="kutu__ust">
+              <h2>Bu Haftanın Programı</h2>
+              <div class="satir-arasi">
+                <button type="button" class="btn btn--ghost btn--sm" id="ogrProgramOnceki">‹</button>
+                <strong id="ogrProgramHafta"></strong>
+                <button type="button" class="btn btn--ghost btn--sm" id="ogrProgramSonraki">›</button>
+              </div>
+            </div>
+            <p class="form-yardim">Sınıfınızın haftalık etkinlik programını yazın; veliler görebilir.</p>
+            <div id="ogr-program-tablo"></div>
+            <button class="btn btn--primary mt-2" id="ogrProgramKaydet">Programı Kaydet</button>
+          </div>
+          <div class="kutu">
+            <div class="kutu__ust"><h2>Yemek Listesi</h2></div>
+            <div id="ogr-menu-goster"></div>
           </div>
         </section>
 

@@ -16,13 +16,19 @@ import { driveYukle } from "./drive-upload.js";
 import { sayfaKorumasi, cikisYap } from "./auth.js";
 import {
   kol, bel, aktifKresId, aktifKres, kresAktifMi, onayBekliyorMu, islemKaydet,
-  denemeBandiGoster, kilitEkraniGoster
+  denemeBandiGoster, kilitEkraniGoster, bildirimGonder
 } from "./kres.js";
+import { kurBildirimZili } from "./bildirim.js";
+import { sistemDuyurulariniGoster } from "./sistem-duyuru.js";
+import { temaBaslat } from "./tema.js";
 import {
-  $, el, escapeHtml, toast, emptyState, tabloBos, openModal, closeModal,
+  $, $$, el, escapeHtml, toast, emptyState, tabloBos, openModal, closeModal,
   confirmDialog, formData, formatDate, formatDateTime, formatAy, paraFormat,
-  yasHesapla, isoDate, firebaseHata, kurPanelGezinme, kurCikis, kullaniciRozeti
+  yasHesapla, isoDate, firebaseHata, kurPanelGezinme, kurCikis, kullaniciRozeti,
+  haftaBaslangici, haftaGunleri, haftaEtiket, haftaKaydir, waLink
 } from "./utils.js";
+
+temaBaslat();
 
 // ---------- Durum ----------
 let baglam = null;
@@ -55,6 +61,8 @@ kullaniciRozeti(profil);
 kurCikis(() => cikisYap());
 if (onayBekliyorMu(aktifKres())) kilitEkraniGoster(aktifKres());  // başvuru inceleniyor
 else denemeBandiGoster(aktifKres());
+kurBildirimZili({ profil, kresId: aktifKresId() });
+sistemDuyurulariniGoster();
 
 const nav = kurPanelGezinme({
   "genel-bakis": "Genel Bakış",
@@ -66,8 +74,14 @@ const nav = kurPanelGezinme({
   "odemeler": "Aidat / Ödeme",
   "talepler": "Talepler",
   "izinler": "İzin / Belge",
+  "program": "Yemek & Program",
+  "yilsonu": "Yıl Sonu",
   "ayarlar": "Ayarlar"
-}, (ad) => { if (ad === "ayarlar") ayarlariDoldur(); });
+}, (ad) => {
+  if (ad === "ayarlar") ayarlariDoldur();
+  if (ad === "program") { menuYukle(); programYukle(); }
+  if (ad === "yilsonu") yilSonuDoldur();
+});
 
 // (Başlangıç çağrıları dosyanın SONUNDA — tüm `const` yardımcılar
 //  tanımlandıktan sonra çalışsın diye.)
@@ -114,6 +128,12 @@ const ogrenciAdi = (id) => {
 const veliler = () => durum.kullanicilar.filter((k) => k.rol === "veli");
 const ogretmenler = () => durum.kullanicilar.filter((k) => k.rol === "ogretmen");
 
+// Bildirim alıcı yardımcıları
+const veliUidleriSinif = (sinifId) => [...new Set(
+  durum.ogrenciler.filter((o) => o.sinifId === sinifId).flatMap((o) => o.veliIds || []))];
+const tumVeliUidleri = () => veliler().map((k) => k.id);
+const tumOgretmenUidleri = () => ogretmenler().map((k) => k.id);
+
 // =============================================================
 //  RENDER
 // =============================================================
@@ -130,6 +150,7 @@ function render() {
   renderOdemeSecicileri();
   renderTahakkukSecicileri();
   renderOdemeler();
+  renderTahsilatOzeti();
   renderTalepler();
   renderIzinSiniflar();
   renderIzinler();
@@ -188,11 +209,18 @@ function renderKullanicilar() {
         <td data-label="Telefon">${escapeHtml(k.telefon || "-")}</td>
         <td data-label="Rol"><span class="rozet rozet--${rozet[k.rol] || "bilgi"}">${escapeHtml(k.rol)}</span></td>
         <td data-label="" class="tablo-islem">
+          ${k.telefon ? `<button class="btn btn--ghost btn--sm" data-wa="${k.id}" title="WhatsApp">📱</button>` : ""}
           <button class="btn btn--ghost btn--sm" data-duzenle="${k.id}">Düzenle</button>
           <button class="btn btn--danger btn--sm" data-sil="${k.id}">Sil</button>
         </td>
       </tr>`).join("")}</tbody>`;
 
+  tablo.querySelectorAll("[data-wa]").forEach((b) =>
+    b.addEventListener("click", () => {
+      const u = durum.kullanicilar.find((x) => x.id === b.dataset.wa);
+      const l = waLink(u?.telefon);
+      if (l) window.open(l, "_blank"); else toast("Geçerli telefon yok.", "warning");
+    }));
   tablo.querySelectorAll("[data-duzenle]").forEach((b) =>
     b.addEventListener("click", () => kullaniciFormu(durum.kullanicilar.find((x) => x.id === b.dataset.duzenle))));
   tablo.querySelectorAll("[data-sil]").forEach((b) =>
@@ -431,6 +459,7 @@ function renderOdemeler() {
         <td data-label="Bildirim" class="soluk">${bild}</td>
         <td class="tablo-islem">
           ${d !== "odendi" ? `<button class="btn btn--primary btn--sm" data-onayla="${o.id}">Ödendi onayla</button>` : `<button class="btn btn--ghost btn--sm" data-geri="${o.id}">Geri al</button>`}
+          ${d === "odendi" ? `<button class="btn btn--ghost btn--sm" data-makbuz="${o.id}">🧾 Makbuz</button>` : ""}
           <button class="btn btn--danger btn--sm" data-sil="${o.id}">Sil</button>
         </td>
       </tr>`;
@@ -439,8 +468,250 @@ function renderOdemeler() {
     b.addEventListener("click", () => odemeDurumAyarla(b.dataset.onayla, "odendi")));
   tablo.querySelectorAll("[data-geri]").forEach((b) =>
     b.addEventListener("click", () => odemeDurumAyarla(b.dataset.geri, "bekliyor")));
+  tablo.querySelectorAll("[data-makbuz]").forEach((b) =>
+    b.addEventListener("click", () => makbuzYazdir(durum.odemeler.find((x) => x.id === b.dataset.makbuz))));
   tablo.querySelectorAll("[data-sil]").forEach((b) =>
     b.addEventListener("click", () => odemeSil(b.dataset.sil)));
+}
+
+// ---------- Tahsilat özeti (borçlu / ay bazlı rapor) ----------
+function renderTahsilatOzeti() {
+  const kap = $("#tahsilat-ozet");
+  if (!kap) return;
+  const ods = durum.odemeler;
+  if (!ods.length) { kap.innerHTML = `<p class="soluk">Henüz aidat kaydı yok.</p>`; return; }
+  const tp = (arr) => arr.reduce((t, x) => t + (Number(x.tutar) || 0), 0);
+  const odenen = ods.filter((o) => o.durum === "odendi");
+  const bekleyen = ods.filter((o) => o.durum !== "odendi");
+  const borcluIds = [...new Set(bekleyen.map((o) => o.ogrenciId))];
+
+  // Ay bazlı
+  const aylar = [...new Set(ods.map((o) => o.ay))].sort().reverse();
+  const ayRows = aylar.map((ay) => {
+    const g = ods.filter((o) => o.ay === ay);
+    const gOd = g.filter((o) => o.durum === "odendi");
+    return `<tr>
+      <td data-label="Ay">${escapeHtml(formatAy(ay))}</td>
+      <td data-label="Tahakkuk">${paraFormat(tp(g))}</td>
+      <td data-label="Tahsil">${paraFormat(tp(gOd))}</td>
+      <td data-label="Bekleyen">${paraFormat(tp(g) - tp(gOd))}</td>
+    </tr>`;
+  }).join("");
+
+  // Borçlu öğrenciler
+  const borclular = borcluIds.map((oid) => {
+    const bo = bekleyen.filter((o) => o.ogrenciId === oid);
+    return { oid, borc: tp(bo), aySayi: bo.length, veliId: bo[0]?.veliId };
+  }).sort((a, b) => b.borc - a.borc);
+  const borcluRows = borclular.map((b) => {
+    const veli = durum.kullanicilar.find((u) => u.id === b.veliId);
+    return `<tr>
+    <td data-label="Öğrenci"><strong>${escapeHtml(ogrenciAdi(b.oid))}</strong></td>
+    <td data-label="Veli">${escapeHtml(kullaniciAdi(b.veliId))}</td>
+    <td data-label="Ay">${b.aySayi}</td>
+    <td data-label="Borç"><strong>${paraFormat(b.borc)}</strong></td>
+    <td class="tablo-islem">${veli?.telefon ? `<button class="btn btn--ghost btn--sm" data-wa-borc="${b.oid}">📱 Hatırlat</button>` : ""}</td>
+  </tr>`;
+  }).join("");
+
+  kap.innerHTML = `
+    <div class="stat-izgara" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:16px">
+      ${statMini("💰", paraFormat(tp(ods)), "Toplam Tahakkuk")}
+      ${statMini("✅", paraFormat(tp(odenen)), "Tahsil Edilen")}
+      ${statMini("⏳", paraFormat(tp(bekleyen)), "Bekleyen")}
+      ${statMini("👤", String(borcluIds.length), "Borçlu Öğrenci")}
+    </div>
+    <div class="tablo-sar mb-2"><table class="veri-tablo tablo-kart">
+      <thead><tr><th>Ay</th><th>Tahakkuk</th><th>Tahsil</th><th>Bekleyen</th></tr></thead>
+      <tbody>${ayRows}</tbody></table></div>
+    ${borclular.length ? `<h3 style="font-size:1rem;margin:6px 0">Borçlu Listesi</h3>
+      <div class="tablo-sar"><table class="veri-tablo tablo-kart">
+        <thead><tr><th>Öğrenci</th><th>Veli</th><th>Ay</th><th>Borç</th><th></th></tr></thead>
+        <tbody>${borcluRows}</tbody></table></div>` : `<p class="soluk">Borçlu öğrenci yok. 🎉</p>`}`;
+
+  kap.querySelectorAll("[data-wa-borc]").forEach((btn) => btn.addEventListener("click", () => {
+    const b = borclular.find((x) => x.oid === btn.dataset.waBorc);
+    const veli = durum.kullanicilar.find((u) => u.id === b?.veliId);
+    const mesaj = `Sayın ${veli?.ad || ""} ${veli?.soyad || ""}, ${ogrenciAdi(b.oid)} için ${paraFormat(b.borc)} tutarında (${b.aySayi} ay) aidat borcunuz bulunmaktadır. Bilginize sunarız.`;
+    const l = waLink(veli?.telefon, mesaj);
+    if (l) window.open(l, "_blank"); else toast("Geçerli telefon yok.", "warning");
+  }));
+}
+const statMini = (i, deger, etiket) => `<div class="stat-kart">
+  <div class="stat-kart__ikon">${i}</div>
+  <div><div class="stat-kart__sayi">${deger}</div><div class="stat-kart__etiket">${etiket}</div></div></div>`;
+
+// ---------- Aidat makbuzu (yazdır / PDF) ----------
+function makbuzYazdir(o) {
+  if (!o) return;
+  const k = aktifKres() || {};
+  const w = window.open("", "_blank", "width=520,height=680");
+  if (!w) { toast("Açılır pencere engellendi. İzin verin.", "warning"); return; }
+  const html = `<!doctype html><html lang="tr"><head><meta charset="utf-8">
+    <title>Aidat Makbuzu</title>
+    <style>
+      body{font-family:'Segoe UI',system-ui,sans-serif;color:#2d2d2d;margin:0;padding:32px}
+      .mk{max-width:440px;margin:0 auto;border:2px solid #f0e2d4;border-radius:16px;padding:28px}
+      h1{font-size:1.3rem;margin:0 0 4px}
+      .alt{color:#888;font-size:.85rem;margin-bottom:20px}
+      .satir{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed #eee;font-size:.95rem}
+      .satir b{color:#555}
+      .tutar{font-size:1.5rem;font-weight:800;margin:16px 0;text-align:center;color:#f26d3d}
+      .rozet{display:inline-block;background:#e3f5ec;color:#2f7d54;font-weight:700;padding:3px 12px;border-radius:999px;font-size:.8rem}
+      .imza{margin-top:28px;text-align:right;color:#888;font-size:.8rem}
+      @media print{body{padding:0}.mk{border:none}}
+    </style></head><body>
+    <div class="mk">
+      <h1>${escapeHtml(k.ad || "Kreş")}</h1>
+      <div class="alt">Aidat Ödeme Makbuzu${k.telefon ? " · " + escapeHtml(k.telefon) : ""}</div>
+      <div class="satir"><b>Öğrenci</b><span>${escapeHtml(ogrenciAdi(o.ogrenciId))}</span></div>
+      <div class="satir"><b>Veli</b><span>${escapeHtml(kullaniciAdi(o.veliId))}</span></div>
+      <div class="satir"><b>Dönem</b><span>${escapeHtml(formatAy(o.ay))}</span></div>
+      ${o.aciklama ? `<div class="satir"><b>Açıklama</b><span>${escapeHtml(o.aciklama)}</span></div>` : ""}
+      <div class="satir"><b>Ödeme yöntemi</b><span>${escapeHtml(o.bildirim?.yontem || "—")}</span></div>
+      <div class="satir"><b>Onay tarihi</b><span>${escapeHtml(o.onay?.tarih ? formatDateTime(o.onay.tarih) : formatDate(new Date()))}</span></div>
+      <div class="tutar">${paraFormat(o.tutar)}</div>
+      <div style="text-align:center"><span class="rozet">✓ Ödendi</span></div>
+      <div class="imza">Bu belge ${escapeHtml(k.ad || "kreş")} tarafından düzenlenmiştir.</div>
+    </div>
+    <script>window.onload=function(){window.print()}<\/script>
+  </body></html>`;
+  w.document.write(html);
+  w.document.close();
+}
+
+// =============================================================
+//  YEMEK LİSTESİ (haftalık menü)
+// =============================================================
+let menuHafta = haftaBaslangici();
+
+async function menuYukle() {
+  $("#menuHafta").textContent = haftaEtiket(menuHafta);
+  let veri = {};
+  try { const s = await getDoc(bel("menuler", menuHafta)); if (s.exists()) veri = s.data(); } catch { /* yoksay */ }
+  const gunler = haftaGunleri(menuHafta);
+  const kap = $("#menu-tablo");
+  kap.innerHTML = "";
+  gunler.forEach((g, i) => {
+    const mv = (veri.gunler && veri.gunler[i]) || {};
+    kap.appendChild(el("div", { class: "hafta-gun" },
+      el("div", { class: "hafta-gun__baslik" }, `${g.isim} · ${formatDate(g.tarih)}`),
+      haftaAlan("🥪 Kahvaltı", "kahvalti", mv.kahvalti, i),
+      haftaAlan("🍲 Öğle Yemeği", "ogle", mv.ogle, i),
+      haftaAlan("🍎 İkindi", "ikindi", mv.ikindi, i)
+    ));
+  });
+}
+function haftaAlan(etiket, alan, deger, gi) {
+  return el("label", { class: "hafta-alan" },
+    el("span", {}, etiket),
+    el("input", { type: "text", value: deger || "", dataset: { gun: String(gi), alan } }));
+}
+async function menuKaydet() {
+  if (!yazmaKontrol()) return;
+  const gunSayi = haftaGunleri(menuHafta).length;
+  const gunler = [];
+  for (let i = 0; i < gunSayi; i++) {
+    const g = {};
+    $$(`#menu-tablo input[data-gun="${i}"]`).forEach((inp) => { g[inp.dataset.alan] = inp.value.trim(); });
+    gunler.push(g);
+  }
+  try {
+    await setDoc(bel("menuler", menuHafta), { hafta: menuHafta, gunler, guncelleme: serverTimestamp() });
+    toast("Yemek listesi kaydedildi.", "success");
+  } catch (err) { toast(firebaseHata(err), "error"); }
+}
+
+// =============================================================
+//  HAFTALIK SINIF PROGRAMI
+// =============================================================
+let programHafta = haftaBaslangici();
+let programSinifId = null;
+
+async function programYukle() {
+  const s = $("#programSinif");
+  s.innerHTML = durum.siniflar.map((x) => `<option value="${x.id}">${escapeHtml(x.ad)}</option>`).join("");
+  if (!programSinifId && durum.siniflar[0]) programSinifId = durum.siniflar[0].id;
+  if (programSinifId) s.value = programSinifId;
+  $("#programHafta").textContent = haftaEtiket(programHafta);
+  const kap = $("#program-tablo");
+  if (!programSinifId) { kap.innerHTML = `<p class="soluk">Önce sınıf oluşturun.</p>`; return; }
+  let veri = {};
+  try { const snap = await getDoc(bel("programlar", `${programSinifId}_${programHafta}`)); if (snap.exists()) veri = snap.data(); } catch { /* yoksay */ }
+  const gunler = haftaGunleri(programHafta);
+  kap.innerHTML = "";
+  gunler.forEach((g, i) => {
+    kap.appendChild(el("div", { class: "hafta-gun" },
+      el("div", { class: "hafta-gun__baslik" }, `${g.isim} · ${formatDate(g.tarih)}`),
+      el("label", { class: "hafta-alan" }, el("span", {}, "🎨 Etkinlikler"),
+        el("input", { type: "text", value: (veri.gunler && veri.gunler[i]) || "", dataset: { gun: String(i) },
+          placeholder: "Örn: Sabah sporu, boyama, hikaye saati" }))));
+  });
+}
+async function programKaydet() {
+  if (!yazmaKontrol() || !programSinifId) return;
+  const gunler = Array.from($("#program-tablo").querySelectorAll("input[data-gun]"))
+    .sort((a, b) => Number(a.dataset.gun) - Number(b.dataset.gun))
+    .map((inp) => inp.value.trim());
+  try {
+    await setDoc(bel("programlar", `${programSinifId}_${programHafta}`), {
+      sinifId: programSinifId, hafta: programHafta, gunler, guncelleme: serverTimestamp()
+    });
+    toast("Program kaydedildi.", "success");
+  } catch (err) { toast(firebaseHata(err), "error"); }
+}
+
+// =============================================================
+//  YIL SONU: sınıf terfi + toplu veli mesajı
+// =============================================================
+function yilSonuDoldur() {
+  const opts = durum.siniflar.map((x) => `<option value="${x.id}">${escapeHtml(x.ad)}</option>`).join("");
+  $("#terfiKaynak").innerHTML = `<option value="">Seçin...</option>` + opts;
+  $("#terfiHedef").innerHTML = `<option value="">Seçin...</option>` + opts +
+    `<option value="__mezun">Mezun / Ayrıldı (sınıftan çıkar)</option>`;
+  $("#tmHedef").innerHTML = `<option value="okul">Tüm veliler</option>` +
+    durum.siniflar.map((x) => `<option value="${x.id}">${escapeHtml(x.ad)} velileri</option>`).join("");
+}
+
+async function terfiYap(e) {
+  e.preventDefault();
+  if (!yazmaKontrol()) return;
+  const v = formData(e.target);
+  if (!v.kaynak || !v.hedef || v.kaynak === v.hedef) { toast("Geçerli kaynak ve hedef seçin.", "warning"); return; }
+  const ogrs = durum.ogrenciler.filter((o) => o.sinifId === v.kaynak);
+  if (!ogrs.length) { toast("Kaynak sınıfta öğrenci yok.", "warning"); return; }
+  const hedefAd = v.hedef === "__mezun" ? "Mezun / Ayrıldı" : sinifAdi(v.hedef);
+  if (!await confirmDialog(`${ogrs.length} öğrenci "${sinifAdi(v.kaynak)}" sınıfından "${hedefAd}" konumuna taşınacak. Onaylıyor musunuz?`, { onayMetni: "Taşı", tehlike: false })) return;
+  const btn = $("#terfiBtn"); btn.disabled = true; btn.textContent = "Taşınıyor...";
+  try {
+    for (const o of ogrs) {
+      await updateDoc(bel("ogrenciler", o.id), { sinifId: v.hedef === "__mezun" ? null : v.hedef });
+    }
+    await islemKaydet(profil.uid, "sinif-terfi", { kaynak: v.kaynak, hedef: v.hedef, sayi: ogrs.length });
+    toast(`${ogrs.length} öğrenci taşındı.`, "success");
+    await hepsiniYukle(); render(); yilSonuDoldur();
+  } catch (err) { toast(firebaseHata(err), "error"); }
+  btn.disabled = false; btn.textContent = "Öğrencileri Taşı";
+}
+
+async function topluMesajGonder(e) {
+  e.preventDefault();
+  if (!yazmaKontrol()) return;
+  const v = formData(e.target);
+  const btn = $("#tmBtn"); btn.disabled = true; btn.textContent = "Gönderiliyor...";
+  try {
+    await addDoc(kol("duyurular"), {
+      baslik: v.baslik, icerik: v.icerik,
+      hedef: v.hedef === "okul" ? "okul" : v.hedef,
+      yayinlayanId: profil.uid, tarih: serverTimestamp()
+    });
+    const alicilar = v.hedef === "okul" ? tumVeliUidleri() : veliUidleriSinif(v.hedef);
+    bildirimGonder(alicilar, "duyuru", v.baslik, v.icerik.slice(0, 90), "duyurular");
+    e.target.reset(); yilSonuDoldur();
+    toast(`Mesaj ${alicilar.length} veliye iletildi.`, "success");
+    await hepsiniYukle(); renderDuyurular();
+  } catch (err) { toast(firebaseHata(err), "error"); }
+  btn.disabled = false; btn.textContent = "Gönder";
 }
 
 // =============================================================
@@ -468,6 +739,59 @@ function gorselleriBagla() {
   $("#odemeForm").addEventListener("submit", odemeEkle);
   $("#tahakkukForm").addEventListener("submit", tahakkukYap);
   $("#izinForm").addEventListener("submit", izinGonder);
+
+  // Yemek listesi
+  $("#menuKaydet").addEventListener("click", menuKaydet);
+  $("#menuOnceki").addEventListener("click", () => { menuHafta = haftaKaydir(menuHafta, -1); menuYukle(); });
+  $("#menuSonraki").addEventListener("click", () => { menuHafta = haftaKaydir(menuHafta, 1); menuYukle(); });
+  // Sınıf programı
+  $("#programKaydet").addEventListener("click", programKaydet);
+  $("#programSinif").addEventListener("change", (e) => { programSinifId = e.target.value; programYukle(); });
+  $("#programOnceki").addEventListener("click", () => { programHafta = haftaKaydir(programHafta, -1); programYukle(); });
+  $("#programSonraki").addEventListener("click", () => { programHafta = haftaKaydir(programHafta, 1); programYukle(); });
+  // Yıl sonu
+  $("#terfiForm").addEventListener("submit", terfiYap);
+  $("#topluMesajForm").addEventListener("submit", topluMesajGonder);
+
+  // Global arama
+  const ara = $("#globalAra");
+  ara.addEventListener("input", () => globalArama(ara.value.trim()));
+  ara.addEventListener("focus", () => { if (ara.value.trim()) globalArama(ara.value.trim()); });
+  document.addEventListener("click", (e) => {
+    const sar = $("#globalAra")?.closest(".global-ara-sar");
+    if (sar && !sar.contains(e.target)) $("#globalAraSonuc").hidden = true;
+  });
+}
+
+// ---------- Global hızlı arama ----------
+function globalArama(q) {
+  const kap = $("#globalAraSonuc");
+  if (!q || q.length < 2) { kap.hidden = true; return; }
+  const n = q.toLocaleLowerCase("tr");
+  const eslesir = (s) => (s || "").toLocaleLowerCase("tr").includes(n);
+  const ogr = durum.ogrenciler.filter((o) => eslesir(`${o.ad} ${o.soyad}`)).slice(0, 6);
+  const kul = durum.kullanicilar.filter((u) => eslesir(`${u.ad} ${u.soyad}`) || eslesir(u.email)).slice(0, 6);
+  if (!ogr.length && !kul.length) {
+    kap.innerHTML = `<div class="global-ara-bos">Sonuç yok</div>`;
+    kap.hidden = false; return;
+  }
+  const rol = { admin: "Yönetici", ogretmen: "Öğretmen", veli: "Veli" };
+  kap.innerHTML =
+    ogr.map((o) => `<button class="global-ara-oge" data-ogr="${o.id}">
+      <span>🧒 ${escapeHtml(o.ad)} ${escapeHtml(o.soyad)}</span>
+      <span class="soluk">${escapeHtml(sinifAdi(o.sinifId))}</span></button>`).join("") +
+    kul.map((u) => `<button class="global-ara-oge" data-kul="${u.id}">
+      <span>👤 ${escapeHtml(u.ad)} ${escapeHtml(u.soyad)}</span>
+      <span class="soluk">${escapeHtml(rol[u.rol] || u.rol)}</span></button>`).join("");
+  kap.querySelectorAll("[data-ogr]").forEach((b) => b.addEventListener("click", () => {
+    kap.hidden = true; $("#globalAra").value = "";
+    ogrenciFormu(durum.ogrenciler.find((x) => x.id === b.dataset.ogr));
+  }));
+  kap.querySelectorAll("[data-kul]").forEach((b) => b.addEventListener("click", () => {
+    kap.hidden = true; $("#globalAra").value = "";
+    kullaniciFormu(durum.kullanicilar.find((x) => x.id === b.dataset.kul));
+  }));
+  kap.hidden = false;
 
   // Galeri tarih filtresi
   $("#galeriTarih").addEventListener("change", (e) => {
@@ -771,6 +1095,10 @@ async function duyuruYayinla(e) {
     e.target.reset();
     renderDuyuruHedef();
     toast("Duyuru yayınlandı.", "success");
+    const alicilar = (veri.hedef || "okul") === "okul"
+      ? [...tumVeliUidleri(), ...tumOgretmenUidleri()]
+      : veliUidleriSinif(veri.hedef);
+    bildirimGonder(alicilar, "duyuru", "Yeni duyuru", veri.baslik, "duyurular");
     await hepsiniYukle();
     renderDuyurular();
   } catch (err) { toast(firebaseHata(err), "error"); }
@@ -811,6 +1139,10 @@ async function odemeEkle(e) {
     e.target.reset();
     renderOdemeSecicileri();
     toast("Ödeme kaydı eklendi.", "success");
+    if ((veri.durum || "bekliyor") !== "odendi") {
+      bildirimGonder(veliId, "aidat", "Yeni aidat kaydı",
+        `${formatAy(veri.ay)} · ${paraFormat(Number(veri.tutar) || 0)}`, "odemeler");
+    }
     await hepsiniYukle();
     renderOdemeler();
   } catch (err) { toast(firebaseHata(err), "error"); }
@@ -830,6 +1162,7 @@ async function tahakkukYap(e) {
   const btn = $("#tahakkukBtn");
   btn.disabled = true; btn.textContent = "Oluşturuluyor...";
   let eklenen = 0, atlanan = 0, velisiz = 0;
+  const bildirilecek = [];
   try {
     for (const o of hedefOgrenciler) {
       const veliId = (o.veliIds || [])[0] || null;
@@ -843,8 +1176,13 @@ async function tahakkukYap(e) {
         tarih: serverTimestamp()
       });
       eklenen++;
+      bildirilecek.push(veliId);
     }
     await islemKaydet(profil.uid, "aidat-tahakkuk", { ay, tutar, eklenen, atlanan });
+    if (bildirilecek.length) {
+      bildirimGonder([...new Set(bildirilecek)], "aidat", "Yeni aidat tahakkuku",
+        `${formatAy(ay)} · ${paraFormat(tutar)}`, "odemeler");
+    }
     toast(`${eklenen} aidat kaydı oluşturuldu. ${atlanan} zaten vardı, ${velisiz} öğrencinin velisi yok.`, "success", 7000);
     e.target.reset();
     await hepsiniYukle();
@@ -936,6 +1274,8 @@ function talepYanitla(t) {
       });
       closeModal();
       toast("Güncellendi.", "success");
+      bildirimGonder(t.ogretmenId, "talep", "Talebiniz güncellendi",
+        `${t.baslik} — ${TALEP_METIN[v.durum] || v.durum}`, "istek");
       await hepsiniYukle();
       renderTalepler();
     } catch (err) { toast(firebaseHata(err), "error"); }
@@ -1016,21 +1356,25 @@ async function izinDetayGoster(b, kutu) {
     (b.hedefSiniflar || []).includes(o.sinifId) && (o.veliIds || []).length);
   const bekleyen = Math.max(0, ilgiliOgr.length - yanitlar.length);
 
-  const tablo = el("table", { class: "veri-tablo" });
-  tablo.innerHTML = `<thead><tr><th>Öğrenci</th><th>Veli</th><th>Karar</th><th>Not</th><th>Tarih</th></tr></thead>
+  const tablo = el("table", { class: "veri-tablo tablo-kart" });
+  tablo.innerHTML = `<thead><tr><th>Öğrenci</th><th>Veli</th><th>Karar</th><th>Not</th><th>Tarih</th><th></th></tr></thead>
     <tbody>${ilgiliOgr.map((o) => {
-      const y = yanitlar.find((x) => x.ogrenciId === o.id);
+      const y = yanitlar.find((x) => x.veliUid === (o.veliIds || [])[0]) || yanitlar.find((x) => x.ogrenciId === o.id);
       const kararRozet = !y ? '<span class="rozet rozet--uyari">Bekliyor</span>'
         : y.karar === "onay" ? '<span class="rozet rozet--basari">Onay</span>'
         : '<span class="rozet rozet--hata">Ret</span>';
       return `<tr>
-        <td>${escapeHtml(o.ad)} ${escapeHtml(o.soyad)}</td>
-        <td>${escapeHtml(kullaniciAdi((o.veliIds || [])[0]))}</td>
-        <td>${kararRozet}</td>
-        <td class="soluk">${escapeHtml(y?.not || "")}</td>
-        <td class="soluk">${y?.tarih ? escapeHtml(formatDateTime(y.tarih)) : "—"}</td>
+        <td data-label="Öğrenci">${escapeHtml(o.ad)} ${escapeHtml(o.soyad)}</td>
+        <td data-label="Veli">${escapeHtml(kullaniciAdi((o.veliIds || [])[0]))}</td>
+        <td data-label="Karar">${kararRozet}</td>
+        <td data-label="Not" class="soluk">${escapeHtml(y?.not || "")}</td>
+        <td data-label="Tarih" class="soluk">${y?.tarih ? escapeHtml(formatDateTime(y.tarih)) : "—"}</td>
+        <td class="tablo-islem">${y ? `<button class="btn btn--ghost btn--sm" data-sifirla="${y.veliUid}">Yanıtı sıfırla</button>` : ""}</td>
       </tr>`;
     }).join("")}</tbody>`;
+
+  tablo.querySelectorAll("[data-sifirla]").forEach((btn) =>
+    btn.addEventListener("click", () => izinYanitSifirla(b, btn.dataset.sifirla)));
 
   openModal(`Yanıtlar — ${escapeHtml(b.baslik)}`, el("div", {},
     el("div", { class: "satir-arasi mb-1" },
@@ -1040,6 +1384,17 @@ async function izinDetayGoster(b, kutu) {
     ),
     el("div", { class: "tablo-sar" }, tablo)
   ), { genis: true });
+}
+
+async function izinYanitSifirla(belge, veliUid) {
+  if (!await confirmDialog("Bu velinin yanıtı silinsin mi? Veli yeniden yanıt verebilir.", { onayMetni: "Sıfırla", tehlike: true })) return;
+  try {
+    await deleteDoc(doc(izinYanitKol(belge.id), veliUid));
+    delete izinYanitCache[belge.id];
+    toast("Yanıt sıfırlandı.", "success");
+    closeModal();
+    izinDetayGoster(belge);
+  } catch (err) { toast(firebaseHata(err), "error"); }
 }
 
 async function izinGonder(e) {
@@ -1064,6 +1419,8 @@ async function izinGonder(e) {
     e.target.reset();
     renderIzinSiniflar();
     toast("Belge gönderildi. Veliler panellerinde görecek.", "success");
+    const alicilar = [...new Set(hedef.flatMap((sid) => veliUidleriSinif(sid)))];
+    bildirimGonder(alicilar, "izin", "Yeni izin / belge", v.baslik, "izinler");
     await hepsiniYukle();
     renderIzinler();
   } catch (err) { toast(firebaseHata(err), "error"); }
@@ -1169,7 +1526,8 @@ async function ayarlariDoldur() {
 async function veriDisaAktar() {
   toast("Veri toplanıyor...", "info");
   const altlar = ["users", "siniflar", "ogrenciler", "yoklamalar", "gunlukRaporlar",
-    "duyurular", "mesajlar", "odemeler", "fotograflar", "talepler", "izinBelgeleri", "islemKayitlari"];
+    "duyurular", "mesajlar", "odemeler", "fotograflar", "talepler", "izinBelgeleri",
+    "gozlemler", "menuler", "programlar", "devamsizlikBildirimleri", "islemKayitlari"];
   const cikti = { kres: aktifKres(), disaAktarma: new Date().toISOString() };
   try {
     for (const alt of altlar) {

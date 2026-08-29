@@ -13,6 +13,8 @@ import {
 
 import { auth, db } from "./firebase-config.js";
 import { $, toast, formData, firebaseHata } from "./utils.js";
+import { temaBaslat } from "./tema.js";
+temaBaslat();
 import { onAuthReady } from "./auth.js";
 import { dizinOku, superAdminMi } from "./kres.js";
 

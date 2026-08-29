@@ -19,13 +19,20 @@ import { sayfaKorumasi, cikisYap } from "./auth.js";
 import { kresAktifMi, onayBekliyorMu, kalanGun } from "./kres.js";
 import { ALANLAR, anasayfaOku, anasayfaYaz } from "./site-icerik.js";
 import {
+  sistemDuyurulariniGoster, sistemDuyurulariOku,
+  sistemDuyuruEkle, sistemDuyuruGuncelle, sistemDuyuruSil
+} from "./sistem-duyuru.js";
+import { temaBaslat } from "./tema.js";
+import {
   $, el, escapeHtml, toast, tabloBos, openModal, closeModal, confirmDialog,
-  formData, formatDate, firebaseHata, kurCikis, paraFormat, isoDate
+  formData, formatDate, formatDateTime, firebaseHata, kurCikis, paraFormat, isoDate
 } from "./utils.js";
 
+temaBaslat();
 await sayfaKorumasi("superadmin");
 $("#userAd").textContent = "Süper Yönetici";
 kurCikis(() => cikisYap());
+sistemDuyurulariniGoster();
 
 let kresler = [];
 let kullanicilar = [];        // { uid, kresId, rol, ...profil }
@@ -104,16 +111,38 @@ function render() {
   const aktif = kresler.filter((k) => kresAktifMi(k)).length;
   const bekleyen = kresler.filter((k) => onayBekliyorMu(k)).length;
   const say = (r) => kullanicilar.filter((u) => u.rol === r).length;
+  const yakinda = kresler.filter((k) => { const g = kalanGun(k); return g != null && g >= 0 && g <= 14; })
+    .sort((a, b) => kalanGun(a) - kalanGun(b));
   $("#ozet").innerHTML = `
     <div class="stat-izgara">
       ${statKart("🏫", kresler.length, "Kreş")}
       ${statKart("✅", aktif, "Aktif")}
       ${statKart("⏳", bekleyen, "Onay Bekleyen")}
-      ${statKart("⏸️", kresler.length - aktif - bekleyen, "Pasif")}
+      ${statKart("⏰", yakinda.length, "Yakında Bitecek")}
       ${statKart("💰", paraFormat(toplamTahsilat()), "Toplam Tahsilat")}
       ${statKart("👩‍🏫", say("ogretmen"), "Öğretmen")}
       ${statKart("👪", say("veli"), "Veli")}
     </div>`;
+
+  // Yaklaşan bitişler kutusu
+  const yb = $("#yaklasan-bitisler");
+  if (yb) {
+    yb.innerHTML = yakinda.length ? `<div class="kutu" style="border-color:var(--uyari)">
+      <div class="kutu__ust"><h2>⏰ Aboneliği Yakında Bitecek Kreşler</h2></div>
+      <div class="tablo-sar"><table class="veri-tablo tablo-kart">
+        <thead><tr><th>Kreş</th><th>Sahibi</th><th>Kalan</th><th></th></tr></thead>
+        <tbody>${yakinda.map((k) => {
+          const g = kalanGun(k);
+          return `<tr>
+            <td data-label="Kreş"><strong>${escapeHtml(k.ad || "-")}</strong></td>
+            <td data-label="Sahibi" class="soluk">${escapeHtml(emailByUid.get(k.sahibiUid) || k.sahibiUid || "-")}</td>
+            <td data-label="Kalan"><span class="rozet rozet--${g <= 3 ? "hata" : "uyari"}">${g} gün</span></td>
+            <td class="tablo-islem"><button class="btn btn--ghost btn--sm" data-yb-uzat="${k.id}">+30g</button></td>
+          </tr>`;
+        }).join("")}</tbody></table></div></div>` : "";
+    yb.querySelectorAll("[data-yb-uzat]").forEach((b) =>
+      b.addEventListener("click", () => sureUzat(b.dataset.ybUzat, 30)));
+  }
 
   const t = $("#kres-tablo");
   if (!kresler.length) { tabloBos(t, "Henüz kreş yok"); return; }
@@ -226,10 +255,23 @@ async function kresDetay(kid) {
   const kullList = kullanicilar.filter((u) => u.kresId === kid);
   let ogrSay = "…", sinifSay = "…";
 
+  // Kullanım metrikleri
+  const gs = kullList.map((u) => u.sonGiris?.toMillis?.() || 0).filter(Boolean);
+  const sonAktivite = gs.length ? Math.max(...gs) : 0;
+  const haftaOnce = Date.now() - 7 * 86400000;
+  const aktif7 = gs.filter((t) => t >= haftaOnce).length;
+  const rolSay = (r) => kullList.filter((u) => u.rol === r).length;
+
   const kap = el("div", {},
     el("div", { class: "rapor-satir" }, el("strong", {}, "Kreş"), el("span", {}, k.ad + " (" + kid + ")")),
     el("div", { class: "rapor-satir" }, el("strong", {}, "Plan / Durum"),
       el("span", {}, `${k.plan} · ${kresAktifMi(k) ? "Aktif" : "Pasif"}`)),
+    el("div", { class: "rapor-satir" }, el("strong", {}, "Kullanıcılar"),
+      el("span", {}, `${rolSay("admin")} yönetici · ${rolSay("ogretmen")} öğretmen · ${rolSay("veli")} veli`)),
+    el("div", { class: "rapor-satir" }, el("strong", {}, "Son aktivite"),
+      el("span", {}, sonAktivite ? formatDateTime(new Date(sonAktivite)) : "—")),
+    el("div", { class: "rapor-satir" }, el("strong", {}, "Son 7 günde aktif"),
+      el("span", {}, `${aktif7} kişi`)),
     el("div", { class: "rapor-satir" }, el("strong", {}, "Öğrenci / Sınıf"),
       el("span", { id: "detay-sayilar" }, "yükleniyor...")),
     el("div", { class: "satir-arasi mt-1" },
@@ -436,7 +478,8 @@ async function kresSil(id) {
     try {
       const altlar = ["users", "siniflar", "ogrenciler", "yoklamalar", "gunlukRaporlar",
         "duyurular", "duyuruOkundu", "mesajlar", "odemeler", "fotograflar",
-        "aboneOdemeleri", "talepler", "izinBelgeleri", "islemKayitlari"];
+        "aboneOdemeleri", "talepler", "izinBelgeleri", "gozlemler", "menuler", "programlar",
+        "bildirimler", "devamsizlikBildirimleri", "islemKayitlari"];
       for (const alt of altlar) {
         const snap = await getDocs(collection(db, "kresler", id, alt));
         for (let i = 0; i < snap.docs.length; i += 400) {
@@ -591,10 +634,65 @@ async function anasayfaModal() {
   openModal("Anasayfa İçeriği", form, { genis: true });
 }
 
+// =============================================================
+//  SİSTEM DUYURUSU (tüm kreşlere)
+// =============================================================
+async function sistemDuyuruModal() {
+  const mevcut = await sistemDuyurulariOku();
+  const form = el("form", {},
+    el("div", { class: "form-grup" }, el("label", {}, "Başlık"),
+      el("input", { name: "baslik", required: "" })),
+    el("div", { class: "form-grup" }, el("label", {}, "Metin"),
+      el("input", { name: "metin", placeholder: "Kısa açıklama" })),
+    el("div", { class: "form-grup" }, el("label", {}, "Seviye"),
+      el("select", { name: "seviye" },
+        el("option", { value: "bilgi" }, "Bilgi"),
+        el("option", { value: "uyari" }, "Uyarı"),
+        el("option", { value: "onemli" }, "Önemli"))),
+    el("button", { class: "btn btn--primary btn--block mt-1", type: "submit" }, "Yayınla")
+  );
+  const liste = el("div", { class: "mt-2", id: "sd-liste" });
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const v = formData(form);
+    try {
+      await sistemDuyuruEkle(v);
+      form.reset();
+      toast("Sistem duyurusu yayınlandı.", "success");
+      sistemDuyuruListe(liste);
+    } catch (err) { toast(firebaseHata(err), "error"); }
+  });
+  openModal("Sistem Duyurusu", el("div", {}, form,
+    el("div", { class: "kutu__ust mt-2", style: "margin-bottom:6px" }, el("h3", {}, "Yayınlananlar")),
+    liste), { genis: true });
+  sistemDuyuruListe(liste, mevcut);
+}
+
+async function sistemDuyuruListe(kap, hazir) {
+  const liste = hazir || await sistemDuyurulariOku();
+  if (!liste.length) { kap.innerHTML = `<p class="soluk">Duyuru yok.</p>`; return; }
+  kap.innerHTML = "";
+  liste.forEach((d) => {
+    kap.appendChild(el("div", { class: "liste-oge" },
+      el("div", { class: "liste-oge__ust" },
+        el("strong", {}, `${d.baslik}`),
+        el("span", { class: "liste-oge__tarih" }, formatDateTime(d.tarih))),
+      d.metin ? el("p", {}, d.metin) : null,
+      el("div", { class: "satir-arasi mt-1" },
+        el("span", { class: `rozet rozet--${d.seviye === "onemli" ? "hata" : d.seviye === "uyari" ? "uyari" : "bilgi"}` }, d.seviye || "bilgi"),
+        el("span", { class: `rozet ${d.aktif ? "rozet--basari" : ""}` }, d.aktif ? "Aktif" : "Pasif"),
+        el("button", { class: "btn btn--ghost btn--sm", onClick: async () => { await sistemDuyuruGuncelle(d.id, { aktif: !d.aktif }); sistemDuyuruListe(kap); } },
+          d.aktif ? "Pasife al" : "Aktifleştir"),
+        el("button", { class: "btn btn--danger btn--sm", onClick: async () => { if (await confirmDialog("Silinsin mi?")) { await sistemDuyuruSil(d.id); sistemDuyuruListe(kap); } } }, "Sil"))
+    ));
+  });
+}
+
 // ---------- bağla ----------
 $("#yeniKresBtn").addEventListener("click", yeniKresFormu);
 $("#superAdminBtn").addEventListener("click", superAdminEkle);
 $("#odemelerBtn").addEventListener("click", odemelerModal);
 $("#anasayfaBtn").addEventListener("click", anasayfaModal);
+$("#sistemDuyuruBtn").addEventListener("click", sistemDuyuruModal);
 
 await yukle();

@@ -89,6 +89,42 @@ export function yasHesapla(dogumTarihi) {
   return yas;
 }
 
+// ---------- Hafta yardımcıları (yemek listesi / program) ----------
+export const HAFTA_GUN_ADLARI = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma"];
+
+// Verilen tarihin içinde bulunduğu haftanın Pazartesi'si (YYYY-MM-DD)
+export function haftaBaslangici(date = new Date()) {
+  const d = toDate(date) || new Date();
+  const g = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const fark = (g.getDay() + 6) % 7;            // Pazartesi = 0
+  g.setDate(g.getDate() - fark);
+  return isoDate(g);
+}
+
+// [{ isim:"Pazartesi", tarih:"2026-08-31" }, ...] (5 gün)
+export function haftaGunleri(haftaBas) {
+  const bas = new Date(haftaBas + "T12:00:00");
+  return HAFTA_GUN_ADLARI.map((isim, i) => {
+    const t = new Date(bas.getTime() + i * 86400000);
+    return { isim, tarih: isoDate(t) };
+  });
+}
+
+// "31 Ağustos – 4 Eylül 2026"
+export function haftaEtiket(haftaBas) {
+  const g = haftaGunleri(haftaBas);
+  const a = toDate(g[0].tarih), b = toDate(g[4].tarih);
+  const gun = (x) => `${x.getDate()} ${AYLAR[x.getMonth()]}`;
+  return `${gun(a)} – ${gun(b)} ${b.getFullYear()}`;
+}
+
+// haftaBas'a ±hafta kaydır
+export function haftaKaydir(haftaBas, adim) {
+  const d = new Date(haftaBas + "T12:00:00");
+  d.setDate(d.getDate() + adim * 7);
+  return isoDate(d);
+}
+
 // "2026-08" -> "Ağustos 2026"
 export function formatAy(ayStr) {
   if (!ayStr || !ayStr.includes("-")) return ayStr || "-";
@@ -99,6 +135,15 @@ export function formatAy(ayStr) {
 export function paraFormat(tutar) {
   const n = Number(tutar) || 0;
   return n.toLocaleString("tr-TR", { style: "currency", currency: "TRY" });
+}
+
+// WhatsApp derin bağlantısı (TR numaraları için ülke kodu eklenir)
+export function waLink(telefon, mesaj = "") {
+  let num = String(telefon || "").replace(/\D/g, "");
+  if (!num) return null;
+  if (num.startsWith("0")) num = "90" + num.slice(1);
+  else if (num.length === 10) num = "90" + num;
+  return `https://wa.me/${num}${mesaj ? "?text=" + encodeURIComponent(mesaj) : ""}`;
 }
 
 // ---------- Toast Bildirimleri ----------
