@@ -1135,6 +1135,74 @@ table.veri-tablo {
 .tablo-islem { flex-wrap: wrap; }
 
 /* =============================================================
+   YÖNETİCİ PANELİ — sıkı tablolar, filtre çubuğu, sayfalama, aidat sekmeleri
+   Satırlar tek satırlık yükseklikte tutulur; kayıt sayısı artınca liste
+   aşağı uzamasın diye liste sayfalanır (admin.js → sayfala()).
+   ============================================================= */
+.veri-tablo.tablo-siki { font-size: 0.86rem; }
+.tablo-siki th, .tablo-siki td { padding: 6px 12px; line-height: 1.35; vertical-align: middle; }
+.tablo-siki th { padding-top: 8px; padding-bottom: 8px; }
+.tablo-siki .rozet { padding: 1px 8px; font-size: 0.72rem; white-space: nowrap; }
+.tablo-siki .btn--sm { padding: 3px 10px; font-size: 0.78rem; }
+.tablo-siki .btn--ghost { border-width: 1px; }
+.tablo-siki .btn:hover { transform: none; }
+.tablo-siki td.soluk { font-size: 0.82rem; }
+
+/* İşlem hücresi masaüstünde gerçek tablo hücresi kalsın (flex olunca satır şişiyordu) */
+@media (min-width: 761px) {
+  .tablo-siki td { white-space: nowrap; }
+  .tablo-siki td.tablo-islem { display: table-cell; text-align: right; width: 1%; }
+  .tablo-siki td.tablo-islem .btn + .btn { margin-left: 4px; }
+  /* Uzun serbest metin hücreleri satırı şişirmesin: tek satır + "…" (tam metin title'da) */
+  .hucre-kirp { display: inline-block; max-width: 240px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+}
+/* Dar ekranda kart görünümü de sıkılaşsın */
+@media (max-width: 760px) {
+  .tablo-siki.tablo-kart tr { margin: 6px 0; padding: 2px; }
+  .tablo-siki.tablo-kart td { padding: 5px 10px; }
+  .tablo-siki.tablo-kart td.tablo-islem { padding-top: 8px; padding-bottom: 8px; gap: 6px; }
+}
+
+.filtre-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.filtre-bar input, .filtre-bar select {
+  padding: 7px 12px;
+  border: 2px solid var(--kenar);
+  border-radius: var(--yuvarlak-sm);
+  font: inherit;
+  font-size: 0.88rem;
+  background: var(--yuzey);
+  color: var(--metin);
+}
+.filtre-bar input { flex: 1 1 220px; min-width: 0; max-width: 360px; }
+.filtre-bar select { flex: 0 1 auto; max-width: 100%; }
+.filtre-bar input:focus, .filtre-bar select:focus { outline: none; border-color: var(--renk-birincil); }
+
+.sayfalama { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.sayfalama:empty { display: none; }
+.sayfalama__kontrol { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sayfalama select {
+  padding: 3px 8px;
+  border: 1px solid var(--kenar);
+  border-radius: var(--yuvarlak-sm);
+  font: inherit;
+  font-size: 0.82rem;
+  background: var(--yuzey);
+  color: var(--metin);
+}
+.sayfalama .btn--sm { padding: 3px 12px; }
+.sayfalama .btn:disabled { visibility: hidden; }
+
+/* Aidat sayfası: sekmeler + yan yana özet tabloları */
+.sekme-panel { display: none; }
+.sekme-panel.aktif { display: block; }
+.form-dar { max-width: 720px; }
+#tahsilat-stat .stat-kart__sayi { font-size: clamp(1.1rem, 3.4vw, 1.5rem); }
+@media (min-width: 561px) { #tahsilat-stat .stat-kart__sayi { overflow-wrap: normal; white-space: nowrap; } }
+.ozet-izgara { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; align-items: start; }
+.ozet-izgara h3 { font-size: 0.95rem; margin: 0 0 8px; }
+@media (max-width: 560px) { .ozet-izgara { grid-template-columns: 1fr; } }
+
+/* =============================================================
    GÜNLÜK RAPOR — modern çip seçimi + önizleme kartı
    ============================================================= */
 .rapor-ogrenci-gez { display: flex; align-items: center; gap: 8px; max-width: 420px; }

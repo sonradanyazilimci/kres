@@ -185,17 +185,18 @@ Cloud Functions/Scheduler yok. Seçenekler:
 
 ---
 
-## Demo Giriş Bilgileri
+## Demo / Test Hesapları
 
-| Rol | E-posta | Şifre |
-|---|---|---|
-| Sağlayıcı (süper-admin) | `erhankenar35@gmail.com` | `1122334455` → `yonetim.html` |
-| Demo kreş yöneticisi | `demo@anaokul360.com` | `Demo123456` |
-| Demo öğretmen | `ogretmen1.*@ornek.com` | `ornek123` |
-| Demo veli | `veli1.*@ornek.com` | `ornek123` |
+Bu depoda **şifre veya giriş bilgisi tutulmaz**. Demo ve test hesaplarını Firebase
+Console → Authentication → Users ekranından kendiniz oluşturun; şifreleri
+depoya değil bir parola yöneticisine kaydedin.
 
-*(Öğretmen/veli e-postalarındaki `*` kısmı göç sırasında üretilen 5 haneli damgadır;
-kesin adresler için `yonetim.html` veya Firestore'a bakın.)*
+| Rol | Giriş yapılan panel |
+|---|---|
+| Sağlayıcı (süper-admin) | `yonetim.html` (Adım 3'teki `superAdmins` kaydı gerekir) |
+| Kreş yöneticisi | `admin.html` |
+| Öğretmen | `ogretmen.html` |
+| Veli | `veli.html` |
 
 ---
 

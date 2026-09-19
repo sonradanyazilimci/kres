@@ -89,7 +89,11 @@
               <button data-rol="veli">Veliler</button>
               <button data-rol="admin">Yöneticiler</button>
             </div>
-            <div class="tablo-sar"><table class="veri-tablo tablo-kart" id="kullanici-tablo"></table></div>
+            <div class="filtre-bar">
+              <input type="search" id="kullaniciAra" placeholder="Ad, e-posta veya telefon ara..." />
+            </div>
+            <div class="tablo-sar"><table class="veri-tablo tablo-kart tablo-siki" id="kullanici-tablo"></table></div>
+            <div class="sayfalama" id="kullanici-sayfa"></div>
           </div>
         </section>
 
@@ -100,7 +104,7 @@
               <h2>Sınıflar</h2>
               <button class="btn btn--primary btn--sm" id="yeniSinifBtn">+ Yeni Sınıf</button>
             </div>
-            <div class="tablo-sar"><table class="veri-tablo tablo-kart" id="sinif-tablo"></table></div>
+            <div class="tablo-sar"><table class="veri-tablo tablo-kart tablo-siki" id="sinif-tablo"></table></div>
           </div>
         </section>
 
@@ -111,10 +115,12 @@
               <h2>Öğrenciler</h2>
               <button class="btn btn--primary btn--sm" id="yeniOgrenciBtn">+ Yeni Öğrenci</button>
             </div>
-            <div class="form-grup" style="max-width:280px">
+            <div class="filtre-bar">
+              <input type="search" id="ogrenciAra" placeholder="Öğrenci veya veli ara..." />
               <select id="ogrenciSinifFiltre"><option value="hepsi">Tüm sınıflar</option></select>
             </div>
-            <div class="tablo-sar"><table class="veri-tablo tablo-kart" id="ogrenci-tablo"></table></div>
+            <div class="tablo-sar"><table class="veri-tablo tablo-kart tablo-siki" id="ogrenci-tablo"></table></div>
+            <div class="sayfalama" id="ogrenci-sayfa"></div>
           </div>
         </section>
 
@@ -183,77 +189,91 @@
 
         <!-- AİDAT / ÖDEME -->
         <section class="gorunum" id="gorunum-odemeler">
+          <div id="tahsilat-stat"></div>
           <div class="kutu">
-            <div class="kutu__ust"><h2>Toplu Aidat Tahakkuku</h2></div>
-            <form id="tahakkukForm">
-              <div class="form-satir">
-                <div class="form-grup">
-                  <label for="tahakkukSinif">Sınıf</label>
-                  <select id="tahakkukSinif" name="sinifId"><option value="hepsi">Tüm sınıflar</option></select>
-                </div>
-                <div class="form-grup">
-                  <label for="tahakkukAy">Ay</label>
-                  <input type="month" id="tahakkukAy" name="ay" required />
-                </div>
-              </div>
-              <div class="form-satir">
-                <div class="form-grup">
-                  <label for="tahakkukTutar">Öğrenci başına tutar (₺)</label>
-                  <input type="number" id="tahakkukTutar" name="tutar" min="0" step="0.01" required />
-                </div>
-                <div class="form-grup">
-                  <label for="tahakkukAciklama">Açıklama (isteğe bağlı)</label>
-                  <input type="text" id="tahakkukAciklama" name="aciklama" placeholder="Örn: Nisan aidatı" />
-                </div>
-              </div>
-              <button type="submit" class="btn btn--primary" id="tahakkukBtn">Tahakkuku Oluştur</button>
-              <p class="form-yardim">Seçilen sınıftaki (velisi tanımlı) her öğrenci için "bekliyor" durumunda bir aidat kaydı açılır. Aynı ay için var olan kayıt atlanır.</p>
-            </form>
-          </div>
-          <div class="kutu">
-            <div class="kutu__ust"><h2>Tek Öğrenciye Kayıt</h2></div>
-            <form id="odemeForm">
-              <div class="form-satir">
-                <div class="form-grup">
-                  <label for="odemeOgrenci">Öğrenci</label>
-                  <select id="odemeOgrenci" name="ogrenciId" required></select>
-                </div>
-                <div class="form-grup">
-                  <label for="odemeAy">Ay</label>
-                  <input type="month" id="odemeAy" name="ay" required />
-                </div>
-              </div>
-              <div class="form-satir">
-                <div class="form-grup">
-                  <label for="odemeTutar">Tutar (₺)</label>
-                  <input type="number" id="odemeTutar" name="tutar" min="0" step="0.01" required />
-                </div>
-                <div class="form-grup">
-                  <label for="odemeDurum">Durum</label>
-                  <select id="odemeDurum" name="durum">
-                    <option value="bekliyor">Bekliyor</option>
-                    <option value="odendi">Ödendi</option>
-                  </select>
-                </div>
-              </div>
-              <button type="submit" class="btn btn--primary">Kaydet</button>
-            </form>
-          </div>
-          <div class="kutu">
-            <div class="kutu__ust"><h2>Tahsilat Özeti</h2></div>
-            <div id="tahsilat-ozet"></div>
-          </div>
-          <div class="kutu">
-            <div class="kutu__ust">
-              <h2>Aidat Kayıtları</h2>
-              <select id="odemeDurumFiltre" style="max-width:200px">
-                <option value="hepsi">Tümü</option>
-                <option value="bildirildi">Ödedim bildirenler</option>
-                <option value="bekliyor">Bekleyenler</option>
-                <option value="odendi">Ödenenler</option>
-              </select>
+            <div class="sekmeler" id="odemeSekmeler">
+              <button class="aktif" data-sekme="kayitlar">Aidat Kayıtları</button>
+              <button data-sekme="ozet">Tahsilat Özeti</button>
+              <button data-sekme="tahakkuk">Toplu Aidat Tahakkuku</button>
+              <button data-sekme="tek">Tek Öğrenciye Kayıt</button>
             </div>
-            <div class="tablo-sar"><table class="veri-tablo tablo-kart" id="odeme-tablo"></table></div>
+
+            <!-- Aidat kayıtları: arama + ay + durum filtresi, sayfalı liste -->
+            <div class="sekme-panel aktif" data-panel="kayitlar">
+              <div class="filtre-bar">
+                <input type="search" id="odemeAra" placeholder="Öğrenci veya veli ara..." />
+                <select id="odemeAyFiltre"><option value="hepsi">Tüm aylar</option></select>
+                <select id="odemeDurumFiltre">
+                  <option value="hepsi">Tümü</option>
+                  <option value="bildirildi">Ödedim bildirenler</option>
+                  <option value="bekliyor">Bekleyenler</option>
+                  <option value="odendi">Ödenenler</option>
+                </select>
+              </div>
+              <div class="tablo-sar"><table class="veri-tablo tablo-kart tablo-siki" id="odeme-tablo"></table></div>
+              <div class="sayfalama" id="odeme-sayfa"></div>
+            </div>
+
+            <!-- Tahsilat özeti: ay bazlı + borçlu listesi yan yana -->
+            <div class="sekme-panel" data-panel="ozet">
+              <div id="tahsilat-ozet"></div>
+            </div>
+
+            <div class="sekme-panel" data-panel="tahakkuk">
+              <form id="tahakkukForm" class="form-dar">
+                <div class="form-satir">
+                  <div class="form-grup">
+                    <label for="tahakkukSinif">Sınıf</label>
+                    <select id="tahakkukSinif" name="sinifId"><option value="hepsi">Tüm sınıflar</option></select>
+                  </div>
+                  <div class="form-grup">
+                    <label for="tahakkukAy">Ay</label>
+                    <input type="month" id="tahakkukAy" name="ay" required />
+                  </div>
+                </div>
+                <div class="form-satir">
+                  <div class="form-grup">
+                    <label for="tahakkukTutar">Öğrenci başına tutar (₺)</label>
+                    <input type="number" id="tahakkukTutar" name="tutar" min="0" step="0.01" required />
+                  </div>
+                  <div class="form-grup">
+                    <label for="tahakkukAciklama">Açıklama (isteğe bağlı)</label>
+                    <input type="text" id="tahakkukAciklama" name="aciklama" placeholder="Örn: Nisan aidatı" />
+                  </div>
+                </div>
+                <button type="submit" class="btn btn--primary" id="tahakkukBtn">Tahakkuku Oluştur</button>
+                <p class="form-yardim">Seçilen sınıftaki (velisi tanımlı) her öğrenci için "bekliyor" durumunda bir aidat kaydı açılır. Aynı ay için var olan kayıt atlanır.</p>
+              </form>
+            </div>
+
+            <div class="sekme-panel" data-panel="tek">
+              <form id="odemeForm" class="form-dar">
+                <div class="form-satir">
+                  <div class="form-grup">
+                    <label for="odemeOgrenci">Öğrenci</label>
+                    <select id="odemeOgrenci" name="ogrenciId" required></select>
+                  </div>
+                  <div class="form-grup">
+                    <label for="odemeAy">Ay</label>
+                    <input type="month" id="odemeAy" name="ay" required />
+                  </div>
+                </div>
+                <div class="form-satir">
+                  <div class="form-grup">
+                    <label for="odemeTutar">Tutar (₺)</label>
+                    <input type="number" id="odemeTutar" name="tutar" min="0" step="0.01" required />
+                  </div>
+                  <div class="form-grup">
+                    <label for="odemeDurum">Durum</label>
+                    <select id="odemeDurum" name="durum">
+                      <option value="bekliyor">Bekliyor</option>
+                      <option value="odendi">Ödendi</option>
+                    </select>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn--primary">Kaydet</button>
+              </form>
+            </div>
           </div>
         </section>
 

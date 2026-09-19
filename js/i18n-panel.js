@@ -683,5 +683,13 @@ window.__I18N_EXTRA__ = {
   "Perşembe": { en: "Thursday", de: "Donnerstag", es: "jueves" },
   "Cuma": { en: "Friday", de: "Freitag", es: "viernes" },
   "Cumartesi": { en: "Saturday", de: "Samstag", es: "sábado" },
-  "Pazar": { en: "Sunday", de: "Sonntag", es: "domingo" }
+  "Pazar": { en: "Sunday", de: "Sonntag", es: "domingo" },
+
+  // ---------- Yönetici paneli: arama / sayfalama / aidat filtreleri ----------
+  "Ad, e-posta veya telefon ara...": { en: "Search name, e-mail or phone...", de: "Name, E-Mail oder Telefon suchen...", es: "Buscar nombre, correo o teléfono..." },
+  "Öğrenci veya veli ara...": { en: "Search student or parent...", de: "Kind oder Eltern suchen...", es: "Buscar alumno o familia..." },
+  "Tüm aylar": { en: "All months", de: "Alle Monate", es: "Todos los meses" },
+  "Sayfa başına kayıt": { en: "Records per page", de: "Einträge pro Seite", es: "Registros por página" },
+  "Önceki sayfa": { en: "Previous page", de: "Vorherige Seite", es: "Página anterior" },
+  "Sonraki sayfa": { en: "Next page", de: "Nächste Seite", es: "Página siguiente" }
 };

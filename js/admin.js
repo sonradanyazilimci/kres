@@ -213,13 +213,51 @@ function renderDashboard() {
     }).join("")}</tbody>`;
 }
 
+// ---------- Liste yardımcıları: arama + sayfalama ----------
+// Kayıt sayısı arttıkça liste aşağı uzamasın diye tablolar sayfalanır.
+const aramaEsles = (q, ...alanlar) => {
+  const n = (q || "").trim().toLocaleLowerCase("tr");
+  return !n || alanlar.some((a) => (a || "").toLocaleLowerCase("tr").includes(n));
+};
+
+const sayfaDurum = {}; // anahtar -> { sayfa, boyut }
+function sayfaBasaDon(anahtar) { if (sayfaDurum[anahtar]) sayfaDurum[anahtar].sayfa = 1; }
+
+// `liste`nin geçerli sayfadaki dilimini döndürür ve `kap` içine sayfalama çubuğunu çizer.
+function sayfala(anahtar, liste, kap, yenidenCiz, boyutlar = [15, 25, 50, 100], varsayilan = 25) {
+  const s = (sayfaDurum[anahtar] ||= { sayfa: 1, boyut: varsayilan });
+  const sayfaSayi = Math.max(1, Math.ceil(liste.length / s.boyut));
+  s.sayfa = Math.min(Math.max(1, s.sayfa), sayfaSayi);
+  const bas = (s.sayfa - 1) * s.boyut;
+  const dilim = liste.slice(bas, bas + s.boyut);
+  if (liste.length <= boyutlar[0]) { kap.innerHTML = ""; return dilim; }
+
+  kap.innerHTML = `
+    <span class="soluk">${bas + 1}–${bas + dilim.length} / ${liste.length}</span>
+    <div class="sayfalama__kontrol">
+      <select data-boyut title="Sayfa başına kayıt">${boyutlar.map((n) =>
+        `<option value="${n}"${n === s.boyut ? " selected" : ""}>${n}</option>`).join("")}</select>
+      <button type="button" class="btn btn--ghost btn--sm" data-onceki aria-label="Önceki sayfa"${s.sayfa <= 1 ? " disabled" : ""}>‹</button>
+      <span class="soluk">${s.sayfa} / ${sayfaSayi}</span>
+      <button type="button" class="btn btn--ghost btn--sm" data-sonraki aria-label="Sonraki sayfa"${s.sayfa >= sayfaSayi ? " disabled" : ""}>›</button>
+    </div>`;
+  kap.querySelector("[data-boyut]").addEventListener("change", (e) => { s.boyut = Number(e.target.value); s.sayfa = 1; yenidenCiz(); });
+  kap.querySelector("[data-onceki]").addEventListener("click", () => { s.sayfa--; yenidenCiz(); });
+  kap.querySelector("[data-sonraki]").addEventListener("click", () => { s.sayfa++; yenidenCiz(); });
+  return dilim;
+}
+
 // ---------- Kullanıcılar ----------
 let kullaniciRolFiltre = "hepsi";
 function renderKullanicilar() {
   const tablo = $("#kullanici-tablo");
+  const sayfaKap = $("#kullanici-sayfa");
+  const q = $("#kullaniciAra").value;
   let liste = [...durum.kullanicilar].sort((a, b) => (a.ad || "").localeCompare(b.ad || "", "tr"));
   if (kullaniciRolFiltre !== "hepsi") liste = liste.filter((k) => k.rol === kullaniciRolFiltre);
-  if (!liste.length) { tabloBos(tablo, "Kullanıcı bulunamadı"); return; }
+  if (q.trim()) liste = liste.filter((k) => aramaEsles(q, `${k.ad || ""} ${k.soyad || ""}`, k.email, k.telefon));
+  if (!liste.length) { tabloBos(tablo, "Kullanıcı bulunamadı"); sayfaKap.innerHTML = ""; return; }
+  liste = sayfala("kullanici", liste, sayfaKap, renderKullanicilar);
   const rozet = { admin: "mor", ogretmen: "bilgi", veli: "basari" };
   tablo.innerHTML = `
     <thead><tr><th>Ad Soyad</th><th>E-posta</th><th>Telefon</th><th>Rol</th><th></th></tr></thead>
@@ -286,9 +324,14 @@ function renderOgrenciSecicileri() {
 let ogrenciSinifFiltre = "hepsi";
 function renderOgrenciler() {
   const tablo = $("#ogrenci-tablo");
+  const sayfaKap = $("#ogrenci-sayfa");
+  const q = $("#ogrenciAra").value;
   let liste = [...durum.ogrenciler].sort((a, b) => (a.ad || "").localeCompare(b.ad || "", "tr"));
   if (ogrenciSinifFiltre !== "hepsi") liste = liste.filter((o) => o.sinifId === ogrenciSinifFiltre);
-  if (!liste.length) { tabloBos(tablo, "Öğrenci bulunamadı"); return; }
+  if (q.trim()) liste = liste.filter((o) => aramaEsles(q, `${o.ad || ""} ${o.soyad || ""}`,
+    (o.veliIds || []).map(kullaniciAdi).join(" ")));
+  if (!liste.length) { tabloBos(tablo, "Öğrenci bulunamadı"); sayfaKap.innerHTML = ""; return; }
+  liste = sayfala("ogrenci", liste, sayfaKap, renderOgrenciler);
   tablo.innerHTML = `
     <thead><tr><th>Ad Soyad</th><th>Yaş</th><th>Sınıf</th><th>Veli(ler)</th><th>Alerji</th><th></th></tr></thead>
     <tbody>${liste.map((o) => `
@@ -296,7 +339,7 @@ function renderOgrenciler() {
         <td data-label="Ad Soyad"><strong>${escapeHtml(o.ad)} ${escapeHtml(o.soyad)}</strong></td>
         <td data-label="Yaş">${o.dogumTarihi ? yasHesapla(o.dogumTarihi) : "-"}</td>
         <td data-label="Sınıf">${escapeHtml(sinifAdi(o.sinifId))}</td>
-        <td data-label="Veli(ler)">${(o.veliIds || []).map((v) => escapeHtml(kullaniciAdi(v))).join(", ") || "-"}</td>
+        <td data-label="Veli(ler)"><span class="hucre-kirp">${(o.veliIds || []).map((v) => escapeHtml(kullaniciAdi(v))).join(", ") || "-"}</span></td>
         <td data-label="Alerji">${o.alerjiler ? `<span class="rozet rozet--uyari">${escapeHtml(o.alerjiler)}</span>` : "-"}</td>
         <td class="tablo-islem">
           <button class="btn btn--ghost btn--sm" data-duzenle="${o.id}">Düzenle</button>
@@ -457,24 +500,45 @@ const ODEME_ROZET = { odendi: "basari", bildirildi: "bilgi", bekliyor: "uyari" }
 const ODEME_METIN = { odendi: "Ödendi", bildirildi: "Ödedim bildirildi", bekliyor: "Bekliyor" };
 
 let odemeDurumFiltre = "hepsi";
+let odemeAyFiltre = "hepsi";
 function renderOdemeler() {
   const tablo = $("#odeme-tablo");
+  const sayfaKap = $("#odeme-sayfa");
+
+  // Ay filtresi: kayıtlarda geçen aylar (yeni → eski)
+  const aylar = [...new Set(durum.odemeler.map((o) => o.ay).filter(Boolean))].sort().reverse();
+  if (odemeAyFiltre !== "hepsi" && !aylar.includes(odemeAyFiltre)) odemeAyFiltre = "hepsi";
+  const aySel = $("#odemeAyFiltre");
+  aySel.innerHTML = `<option value="hepsi">Tüm aylar</option>` +
+    aylar.map((a) => `<option value="${escapeHtml(a)}">${escapeHtml(formatAy(a))}</option>`).join("");
+  aySel.value = odemeAyFiltre;
+
+  const q = $("#odemeAra").value;
   let liste = [...durum.odemeler];
   if (odemeDurumFiltre !== "hepsi") liste = liste.filter((o) => (o.durum || "bekliyor") === odemeDurumFiltre);
-  // "Ödedim bildirildi" en üste
-  liste.sort((a, b) => (b.durum === "bildirildi" ? 1 : 0) - (a.durum === "bildirildi" ? 1 : 0));
-  if (!liste.length) { tabloBos(tablo, "Kayıt yok"); return; }
+  if (odemeAyFiltre !== "hepsi") liste = liste.filter((o) => o.ay === odemeAyFiltre);
+  if (q.trim()) liste = liste.filter((o) => aramaEsles(q, ogrenciAdi(o.ogrenciId), kullaniciAdi(o.veliId), o.aciklama));
+  // "Ödedim bildirildi" en üste, sonra yeni ay → eski ay, sonra öğrenci adı
+  liste.sort((a, b) =>
+    (b.durum === "bildirildi" ? 1 : 0) - (a.durum === "bildirildi" ? 1 : 0) ||
+    (b.ay || "").localeCompare(a.ay || "") ||
+    ogrenciAdi(a.ogrenciId).localeCompare(ogrenciAdi(b.ogrenciId), "tr"));
+  if (!liste.length) { tabloBos(tablo, "Kayıt yok"); sayfaKap.innerHTML = ""; return; }
+  liste = sayfala("odeme", liste, sayfaKap, renderOdemeler);
+
   tablo.innerHTML = `
     <thead><tr><th>Öğrenci</th><th>Veli</th><th>Ay</th><th>Tutar</th><th>Durum</th><th>Bildirim</th><th></th></tr></thead>
     <tbody>${liste.map((o) => {
       const d = o.durum || "bekliyor";
-      const bild = o.bildirim
-        ? `${escapeHtml(o.bildirim.yontem || "-")}${o.bildirim.not ? " · " + escapeHtml(o.bildirim.not) : ""}<br><span class="soluk">${escapeHtml(formatDateTime(o.bildirim.tarih))}</span>`
-        : "—";
+      // Satır tek satır kalsın: yöntem · not · tarih yan yana
+      const bildMetin = o.bildirim
+        ? [o.bildirim.yontem || "-", o.bildirim.not, formatDateTime(o.bildirim.tarih)].filter(Boolean).join(" · ")
+        : "";
+      const bild = bildMetin ? `<span class="hucre-kirp" title="${escapeHtml(bildMetin)}">${escapeHtml(bildMetin)}</span>` : "—";
       return `<tr${d === "bildirildi" ? ' class="satir-vurgu"' : ""}>
         <td data-label="Öğrenci"><strong>${escapeHtml(ogrenciAdi(o.ogrenciId))}</strong></td>
         <td data-label="Veli">${escapeHtml(kullaniciAdi(o.veliId))}</td>
-        <td data-label="Ay">${escapeHtml(formatAy(o.ay))}${o.aciklama ? `<br><span class="soluk">${escapeHtml(o.aciklama)}</span>` : ""}</td>
+        <td data-label="Ay">${escapeHtml(formatAy(o.ay))}${o.aciklama ? ` <span class="soluk hucre-kirp" title="${escapeHtml(o.aciklama)}">· ${escapeHtml(o.aciklama)}</span>` : ""}</td>
         <td data-label="Tutar">${paraFormat(o.tutar)}</td>
         <td data-label="Durum"><span class="rozet rozet--${ODEME_ROZET[d] || "uyari"}">${ODEME_METIN[d] || d}</span></td>
         <td data-label="Bildirim" class="soluk">${bild}</td>
@@ -497,10 +561,11 @@ function renderOdemeler() {
 
 // ---------- Tahsilat özeti (borçlu / ay bazlı rapor) ----------
 function renderTahsilatOzeti() {
+  const stat = $("#tahsilat-stat");
   const kap = $("#tahsilat-ozet");
   if (!kap) return;
   const ods = durum.odemeler;
-  if (!ods.length) { kap.innerHTML = `<p class="soluk">Henüz aidat kaydı yok.</p>`; return; }
+  if (!ods.length) { stat.innerHTML = ""; kap.innerHTML = `<p class="soluk">Henüz aidat kaydı yok.</p>`; return; }
   const tp = (arr) => arr.reduce((t, x) => t + (Number(x.tutar) || 0), 0);
   const odenen = ods.filter((o) => o.durum === "odendi");
   const bekleyen = ods.filter((o) => o.durum !== "odendi");
@@ -519,12 +584,15 @@ function renderTahsilatOzeti() {
     </tr>`;
   }).join("");
 
-  // Borçlu öğrenciler
+  // Borçlu öğrenciler (sayfalı)
   const borclular = borcluIds.map((oid) => {
     const bo = bekleyen.filter((o) => o.ogrenciId === oid);
     return { oid, borc: tp(bo), aySayi: bo.length, veliId: bo[0]?.veliId };
   }).sort((a, b) => b.borc - a.borc);
-  const borcluRows = borclular.map((b) => {
+  const borcluSayfaKap = document.createElement("div");
+  borcluSayfaKap.className = "sayfalama";
+  const borcluDilim = sayfala("borclu", borclular, borcluSayfaKap, renderTahsilatOzeti, [5, 10, 25], 10);
+  const borcluRows = borcluDilim.map((b) => {
     const veli = durum.kullanicilar.find((u) => u.id === b.veliId);
     return `<tr>
     <td data-label="Öğrenci"><strong>${escapeHtml(ogrenciAdi(b.oid))}</strong></td>
@@ -535,20 +603,28 @@ function renderTahsilatOzeti() {
   </tr>`;
   }).join("");
 
-  kap.innerHTML = `
+  stat.innerHTML = `
     <div class="stat-izgara" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:16px">
       ${statMini("💰", paraFormat(tp(ods)), "Toplam Tahakkuk")}
       ${statMini("✅", paraFormat(tp(odenen)), "Tahsil Edilen")}
       ${statMini("⏳", paraFormat(tp(bekleyen)), "Bekleyen")}
       ${statMini("👤", String(borcluIds.length), "Borçlu Öğrenci")}
-    </div>
-    <div class="tablo-sar mb-2"><table class="veri-tablo tablo-kart">
-      <thead><tr><th>Ay</th><th>Tahakkuk</th><th>Tahsil</th><th>Bekleyen</th></tr></thead>
-      <tbody>${ayRows}</tbody></table></div>
-    ${borclular.length ? `<h3 style="font-size:1rem;margin:6px 0">Borçlu Listesi</h3>
-      <div class="tablo-sar"><table class="veri-tablo tablo-kart">
-        <thead><tr><th>Öğrenci</th><th>Veli</th><th>Ay</th><th>Borç</th><th></th></tr></thead>
-        <tbody>${borcluRows}</tbody></table></div>` : `<p class="soluk">Borçlu öğrenci yok. 🎉</p>`}`;
+    </div>`;
+
+  kap.innerHTML = `
+    <div class="ozet-izgara">
+      <div class="tablo-sar"><table class="veri-tablo tablo-kart tablo-siki">
+        <thead><tr><th>Ay</th><th>Tahakkuk</th><th>Tahsil</th><th>Bekleyen</th></tr></thead>
+        <tbody>${ayRows}</tbody></table></div>
+      <div>
+        ${borclular.length ? `<h3>Borçlu Listesi</h3>
+        <div class="tablo-sar"><table class="veri-tablo tablo-kart tablo-siki">
+          <thead><tr><th>Öğrenci</th><th>Veli</th><th>Ay</th><th>Borç</th><th></th></tr></thead>
+          <tbody>${borcluRows}</tbody></table></div>
+        <div id="borclu-sayfa-yer"></div>` : `<p class="soluk">Borçlu öğrenci yok. 🎉</p>`}
+      </div>
+    </div>`;
+  kap.querySelector("#borclu-sayfa-yer")?.replaceWith(borcluSayfaKap);
 
   kap.querySelectorAll("[data-wa-borc]").forEach((btn) => btn.addEventListener("click", () => {
     const b = borclular.find((x) => x.oid === btn.dataset.waBorc);
@@ -745,6 +821,7 @@ function gorselleriBagla() {
       $("#kullaniciFiltre").querySelectorAll("button").forEach((x) => x.classList.remove("aktif"));
       b.classList.add("aktif");
       kullaniciRolFiltre = b.dataset.rol;
+      sayfaBasaDon("kullanici");
       renderKullanicilar();
     });
   });
@@ -753,7 +830,44 @@ function gorselleriBagla() {
   $("#yeniOgrenciBtn").addEventListener("click", () => ogrenciFormu());
   $("#ogrenciSinifFiltre").addEventListener("change", (e) => {
     ogrenciSinifFiltre = e.target.value;
+    sayfaBasaDon("ogrenci");
     renderOgrenciler();
+  });
+  $("#kullaniciAra").addEventListener("input", () => { sayfaBasaDon("kullanici"); renderKullanicilar(); });
+  $("#ogrenciAra").addEventListener("input", () => { sayfaBasaDon("ogrenci"); renderOgrenciler(); });
+
+  // Aidat sekmeleri + filtreleri
+  $("#odemeSekmeler").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    $("#odemeSekmeler").querySelectorAll("button").forEach((x) => x.classList.toggle("aktif", x === b));
+    $$("#gorunum-odemeler .sekme-panel").forEach((p) => p.classList.toggle("aktif", p.dataset.panel === b.dataset.sekme));
+  }));
+  $("#odemeAra").addEventListener("input", () => { sayfaBasaDon("odeme"); renderOdemeler(); });
+  $("#odemeAyFiltre").addEventListener("change", (e) => {
+    odemeAyFiltre = e.target.value;
+    sayfaBasaDon("odeme");
+    renderOdemeler();
+  });
+  $("#odemeDurumFiltre").addEventListener("change", (e) => {
+    odemeDurumFiltre = e.target.value;
+    sayfaBasaDon("odeme");
+    renderOdemeler();
+  });
+
+  // Galeri tarih filtresi
+  $("#galeriTarih").addEventListener("change", (e) => {
+    galeriTarih = e.target.value || isoDate();
+    renderGaleri();
+  });
+  $("#galeriBugun").addEventListener("click", () => {
+    galeriTarih = isoDate();
+    $("#galeriTarih").value = galeriTarih;
+    renderGaleri();
+  });
+
+  // Talep durum filtresi
+  $("#talepDurumFiltre").addEventListener("change", (e) => {
+    talepDurumFiltre = e.target.value;
+    renderTalepler();
   });
   $("#duyuruForm").addEventListener("submit", duyuruYayinla);
   $("#fotoForm").addEventListener("submit", fotoYukle);
@@ -813,29 +927,6 @@ function globalArama(q) {
     kullaniciFormu(durum.kullanicilar.find((x) => x.id === b.dataset.kul));
   }));
   kap.hidden = false;
-
-  // Galeri tarih filtresi
-  $("#galeriTarih").addEventListener("change", (e) => {
-    galeriTarih = e.target.value || isoDate();
-    renderGaleri();
-  });
-  $("#galeriBugun").addEventListener("click", () => {
-    galeriTarih = isoDate();
-    $("#galeriTarih").value = galeriTarih;
-    renderGaleri();
-  });
-
-  // Ödeme durum filtresi
-  $("#odemeDurumFiltre").addEventListener("change", (e) => {
-    odemeDurumFiltre = e.target.value;
-    renderOdemeler();
-  });
-
-  // Talep durum filtresi
-  $("#talepDurumFiltre").addEventListener("change", (e) => {
-    talepDurumFiltre = e.target.value;
-    renderTalepler();
-  });
 }
 
 // =============================================================
